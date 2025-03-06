@@ -71,6 +71,9 @@ class DummyAgent(CaptureAgent):
     on initialization time, please take a look at
     CaptureAgent.registerInitialState in captureAgents.py.
     '''
+    # TODO call create graph
+    root = TreeNode(initial_game_state)
+
     CaptureAgent.registerInitialState(self, gameState)
 
     '''
@@ -87,6 +90,29 @@ class DummyAgent(CaptureAgent):
     '''
     You should change this in your own agent.
     '''
+    # print(gameState)
+
+    chosen_action = random.choice(actions) # TODO change to something smarter later
+    gameState.add_child(chosen_action) # make sure actions are legal and defined
 
     return random.choice(actions)
+  
 
+
+class TreeNode:
+    def __init__(self, gameState):
+        self.gameState = gameState
+        self.children = []
+
+    def add_child(self, child):
+        self.children.append(child)
+
+    def print_tree(self, level=0):
+        print(" " * (level * 4) + str(self.value))
+        for child in self.children:
+            child.print_tree(level + 1)
+
+
+# Example usage:
+root = TreeNode(initial_game_state)
+root.print_tree()
