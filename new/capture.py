@@ -816,6 +816,7 @@ def readCommand( argv ):
                     help='Catch exceptions and enforce time limits')
 
   options, otherjunk = parser.parse_args(argv)
+  print(f"options: {options}")
   assert len(otherjunk) == 0, "Unrecognized options: " + str(otherjunk)
   args = dict()
 
@@ -858,14 +859,18 @@ def readCommand( argv ):
 
   # Choose a pacman agent
   redArgs, blueArgs = parseAgentArgs(options.redOpts), parseAgentArgs(options.blueOpts)
+
   if options.numTraining > 0:
     redArgs['numTraining'] = options.numTraining
     blueArgs['numTraining'] = options.numTraining
   nokeyboard = options.textgraphics or options.quiet or options.numTraining > 0
   print('\nRed team %s with %s:' % (options.red, redArgs))
   redAgents = loadAgents(True, options.red, nokeyboard, redArgs)
+  #print(f"redAgents: {redAgents}")
   print('\nBlue team %s with %s:' % (options.blue, blueArgs))
   blueAgents = loadAgents(False, options.blue, nokeyboard, blueArgs)
+  #print(f"blueAgents: {blueAgents}")
+
   args['agents'] = sum([list(el) for el in zip(redAgents, blueAgents)],[]) # list of agents
 
   numKeyboardAgents = 0

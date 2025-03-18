@@ -245,6 +245,7 @@ import math
 class TreeNode:
     def __init__(self, state, parent=None, action=None):
         self.state = state
+        #self.game = game
         self.parent = parent
         self.legal_actions = state.getLegalActions()
         self.action = action
@@ -253,6 +254,15 @@ class TreeNode:
         self.visits = 0
         self.reward = 0
         self.untried_actions = state.getLegalActions()  # All legal actions
+    
+    def print_tree(self):
+        print(f"state: {self.state}")
+        print(f"parent: {self.parent}")
+        print(f"action: {self.action}")
+        print(f"children: {self.children}")
+        #print(f"visits: {self.visits}")
+        #print(f"reward: {self.reward}")
+        #print(f"untried_actions: {self.untried_actions}")
 
     def select(self):
         print(f"self.legal_actions : {self.legal_actions}")
@@ -278,48 +288,21 @@ class TreeNode:
         self.reward += reward
 
     def is_terminal(self):
-        return True
+        #return True
         # Check if the node is terminal (game over or no more legal actions)
         #print("self.state: " + str(self.state))
-        #return self.state.isGameOver()
+        print(f"self.gameState: {self.state}")
+        #print(f"self.game.gameOver: {self.game.gameOver}")
+        #return self.game.gameOver
 
     def is_fully_expanded(self):
+        print("check this")
+        print(f"len(self.untried_actions): {len(self.untried_actions)}")
         if (len(self.untried_actions) == 0):
             return True
+        else: 
+            return False
 
     def has_child(self, action):
         return any(child.action == action for child in self.children)
 
-'''
-
-game_state = [
-    "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%",
-    "%   %. %.%.%       %     %.%.%G%",
-    "% % %%       %%  %   %%%   %.%G%",
-    "% % %. % %%%    %%%% .%..% % % %",
-    "% % %% % ..% %   %   %%%%% % % %",
-    "% %    %%%%% %%%   %%%.% o % % %",
-    "% %% % ..%.  %.%%%       %   % %",
-    "% %. %%.%%%%        %.%%%%  %% %",
-    "% %%  %%%%.%        %%%%.%% .% %",
-    "% %   %       %%%.%  .%.. % %% %",
-    "% % % o %.%%%   %%% %%%%%    % %",
-    "% % % %%%%%   %   % %.. % %% % %",
-    "% % % %..%. %%%%    %%% % .% % %",
-    "%G%.%   %%%   %  %%       %% % %",
-    "%G%.%.%     %       %.%.% .%   %",
-    "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
-]
-
-print("does this work")
-root = TreeNode(game_state)
-print("does this work")
-root.find_graph(game_state)
-print(root.current_o_position)
-print(root.current_ghost_positions)
-print(root.current_pacman_positions)
-print(root.current_food_positions)
-#root.add_child("North", TreeNode(game_state))
-#root.print_tree()
-#print(root.food)'
-'''

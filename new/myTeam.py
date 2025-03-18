@@ -62,6 +62,10 @@ class MCTSAgent(CaptureAgent):
 
     IMPORTANT: This method may run for at most 15 seconds.
     """
+    self.root = TreeNode(gameState)
+    self.root.print_tree()
+    print("root: ", self.root)
+    print("root.state: ", self.root.state)
 
     '''
     Make sure you do not delete the following line. If you would like to
@@ -71,8 +75,7 @@ class MCTSAgent(CaptureAgent):
     '''
     # TODO call create graph
     #print(f"game_State:\n {gameState}")
-    self.root = TreeNode(gameState)
-    print("root: ", self.root)
+    
 
     CaptureAgent.registerInitialState(self, gameState)
 
@@ -94,6 +97,7 @@ class MCTSAgent(CaptureAgent):
     You should change this in your own agent.
     '''
     # print(gameState)
+    #self.state.process
 
     for _ in range(num_simulations):
       leaf = self.select(self.root) # TODO change to something smarter later
@@ -102,7 +106,8 @@ class MCTSAgent(CaptureAgent):
 
       print("leaf.is_terminal(): ", leaf.is_terminal())
     
-      if not leaf.is_terminal() and not leaf.is_fully_expanded():
+      if not leaf.is_fully_expanded():
+        print("are we here 2? ")
         self.expand(leaf)
 
       # Simulation
@@ -121,11 +126,27 @@ class MCTSAgent(CaptureAgent):
     #return random.choice(actions)
   
   def select(self, node):
-    print("are we here?")
+    #print("are we here?")
     while not node.is_terminal() and node.is_fully_expanded():
-      print("select a node")
+      #print("select a node")
       node = node.best_child()
     return node
+
+
+  def expand(self, node):
+    """
+    Expand the node by choosing an untried action and creating a new child.
+    """
+    print("expanding tree")
+    action = node.untried_actions.pop()
+    print(f"action: {action}")
+    new_state = node.state.generateSuccessor(self.index, action)  # Generate the next state
+    print(f"new_state: {new_state}")
+    child_node = TreeNode(new_state, parent=node, action=action)
+    child_node.print_tree()
+    print(f"child_node: {child_node}")
+    node.add_child(child_node)
+
 
 
   def simulate(self, node):
