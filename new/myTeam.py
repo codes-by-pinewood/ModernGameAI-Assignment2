@@ -88,44 +88,42 @@ class MCTSAgent(CaptureAgent):
     """
     Picks among actions randomly.
     """
-    print("choose action")
-    # self.tree.root
-    #print("root: ", node)
     num_simulations = 5
-    print("number of simulations")
-    actions = node.getLegalActions(self.index)
-  
     '''
     You should change this in your own agent.
     '''
-    # print(gameState)
-    #self.state.process
+
 
     for _ in range(num_simulations):
-      next_node = self.tree.select() 
-      print(f"node: {next_node}")
-      print("simulating")
-      
-      print("node.is_fully_expanded(): ", next_node.is_fully_expanded())
     
-      if not next_node.is_fully_expanded():
-        print("next_node is not fully expanded ")
-        selected_action = random.choice(next_node.untried_actions)
-        child = next_node.state.generateSuccessor(self.index, selected_action)
-        self.tree.create_relations(next_node, child)
+      # if not self.tree.is_fully_expanded(node):
+      selected_action = random.choice(node.getLegalActions())
+      print(f"LEGAL ACTIONS: {node.getLegalActions()}")
+      print(f"SELECTED ACTION: {selected_action}")
+      child = node.generateSuccessor(self.index, selected_action)
+      self.tree.update_visited_nodes(child)
+      self.tree.create_relations(node, child, selected_action)
+      print("I am past created relations")
 
+      node = child
 
-      # Simulation
+    # HERE the simulation stops and the updates start
 
-      reward = self.simulate(node)
+    # Simulation
+    reward = self.getScore(node)
+    # print(f"reward {reward}")
 
-      # Backpropagation
-      self.backpropagate(node, reward)
+    # Backpropagation
+    self.tree.backpropagate(reward)
 
     # After the simulations, select the best child (best action)
-    best_child = self.root.best_child()
-    print(f"Best action chosen: {best_child.action}")
-    return best_child.action
+    best_action = self.tree.return_best_action()
+    child_node = node.generateSuccessor(self.index, best_action)
+    # Update the tree root 
+    self.tree.root = child_node
+
+    print(f"Best action chosen: {best_action}")
+    return best_action
     #print(f"chosen_action: {chosen_action}")
     #self.root.add_child(chosen_action) # make sure actions are legal and defined
 
@@ -137,26 +135,7 @@ class MCTSAgent(CaptureAgent):
       #print("select a node")
       node = node.best_child()
     return node
-
-
-  def expand(self, node):
-    """
-    Expand the node by choosing an untried action and creating a new child.
-    """
-    print("expanding tree")
-    #action = node.untried_actions.pop()
-    print(f"action dksjds: {action}")
-    child = node.state.generateSuccessor(self.index, action)  # Generate the next state
-    # print("is it not working here")
-    #print(f"new_state: {new_state}")
-    #child_node = TreeNode(new_state, parent=node, action=action)                                                                                                                                                                     
-    node.add_child(child, action)
-
-    node.print_tree()
-    #print(f"child_node: {child_node}")
   
-
-
 
   def simulate(self, node):
       """
@@ -169,11 +148,6 @@ class MCTSAgent(CaptureAgent):
           current_state = current_state.generateSuccessor(self.index, action)
       return self.evaluate_reward(current_state)
 
-  def backpropagate(self, node, reward):
-  
-      while node is not None:
-          node.update(reward)  # Update the node with the simulation result
-          node = node.parent
 
   def evaluate_reward(self, gameState):
       return gameState.getScore()  # You can customize this depending on your agent's strategy

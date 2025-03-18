@@ -241,44 +241,92 @@ print(root.current_food_positions)
 '''
 
 import math 
+import random
 
 class Tree:
     def __init__(self, root=None, action=None):
-        #self.state = state
         self.relations = {}
-        #self.game = game
+        # self.untried_actions_dict = {}  
         self.root = root
-        #self.legal_actions = root.getLegalActions()
-        #self.action = action
-        #self.children = []
-        #self.leaf = state.select()
-        self.visits = 0
-        self.reward = 0
-        #self.untried_actions = root.getLegalActions()  # All legal actions
+        self.visited_nodes = []
+        self.reward_dict = {}
+        # self.tried_actions_reward_dict = {}
+
+        # self.initialize_untrained_actions()
+        self.initialize_reward_dict()
+        # self.initialize_tried_actions_reward_dict()
     
-    def create_relations(self, parent, child):
+    def return_best_action(self):
+        """
+        This function:
+            - returns best action
+            - empties tried action reward dictionary, as the root changes
+            - re-initializetried actions
+        """
+        """
+        CURRENT ISSUE:
+        We cannot isolate the best action to take after the simulation. Return illigal actions or None
+        """
+        # roots_children = self.relations.get(self.root)
+        roots_children = [child for child, action in self.relations[self.root]]
+
+        print(f"roots_children: {roots_children}")
+
+        best_child = max(roots_children, key=lambda roots_children: self.reward_dict.get(roots_children, float('-inf')))
+
+        # best_child = max(self.reward_dict, key=lambda k: roots_children)
+        print(f"best child {best_child}")
+        for child in roots_children:
+            if stored_child == best_child:
+                return action 
+
+    # def initialize_tried_actions_reward_dict(self):
+    #     keys = self.root.getLegalActions()  
+    #     self.tried_actions_reward_dict = dict.fromkeys(keys, 0)
+
+    # def initialize_untrained_actions(self):
+    #     self.untried_actions_dict[self.root] = self.root.getLegalActions()   
+
+    def initialize_reward_dict(self):
+        self.reward_dict[self.root] = 0
+    
+    def create_relations(self, parent, child, action):
+        """
+        Expand the tree by:
+            - add a child to the parent from which it was explored
+            - remove the taken action from unexplored parent actions
+            - add all legal actions to the created child
+        """
         if parent not in self.relations:
-            self.relations[parent] = child
+            self.relations[parent] = [(child, action)]
         else:
-            self.relations[parent].append(child)
+            self.relations[parent].append((child, action))
+        print("RELATIONS CREATED")
+        print(self.relations[parent])
+        
+        # Remove the just tried action
+        # self.untried_actions_dict[parent].remove(action)
+
+        # Fill in the legal actions of the child
+        # self.untried_actions_dict[child] = child.getLegalActions()
+        
                          
     def print_tree(self):
         print("printing tree\n")
-        #print(f"state: {self.state}")
         print(f"root of the tree: {self.root}")
-        #print(f"action: {self.action}")
         print(f"tree from root: {self.relations}")
-        print(f"children: {self.children}")
-        #print(f"visits: {self.visits}")
-        #print(f"reward: {self.reward}")
+        # print(f"children: {self.children}")
         #print(f"untried_actions: {self.untried_actions}")
 
     def select(self):
         print(f"self.legal_actions : {self.legal_actions}")
         self.random.choice(self.legal_actions)
-
-    #def extend_tree(self):
+        
+    def get_random_child(self, node):
+        print(f"self.relations[node]: {self.relations[node]}")
+        return random.choice([self.relations[node]])
     
+            
     def add_child(self, child_node):
         self.children.append(child_node)
         print("updating children")
@@ -308,16 +356,32 @@ class Tree:
         #print(f"self.game.gameOver: {self.game.gameOver}")
         #return self.game.gameOver
 
-    def is_fully_expanded(self):
-        print("inside is_fully_expanded")
-        print(f"len(self.untried_actions): {len(self.untried_actions)}")
-        if (len(self.untried_actions) == 0):
-            return True
-        else: 
-            return False
+    # def is_fully_expanded(self, node):
+    #     return (len(self.untried_actions_dict.get(node, [])) == 0)
+
 
     def has_child(self, action):
         return any(child.action == action for child in self.children)
 
-    def expand(self, action):
-        self.relatio
+    def update_visited_nodes(self, child):
+        self.visited_nodes.append(child)
+
+    def backpropagate(self, reward):
+        num_states = len(self.visited_nodes)
+
+        for node in self.visited_nodes:
+            if node not in self.reward_dict.keys():
+                self.reward_dict[node] = 0
+
+            initial_reward = self.reward_dict[node]
+            self.reward_dict[node] += (1 / num_states) * (reward - initial_reward) 
+        #self.tried_actions_reward_dict = {}
+
+        self.visited_nodes = []
+
+        # self.update_tried_actions_reward_dict()
+
+    # def update_tried_actions_reward_dict(self):
+    #     roots_children = self.relations[self.root].items()
+
+
