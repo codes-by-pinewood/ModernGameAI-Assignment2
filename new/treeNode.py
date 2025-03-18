@@ -242,23 +242,32 @@ print(root.current_food_positions)
 
 import math 
 
-class TreeNode:
-    def __init__(self, state, parent=None, action=None):
-        self.state = state
+class Tree:
+    def __init__(self, root=None, action=None):
+        #self.state = state
+        self.relations = {}
         #self.game = game
-        self.parent = parent
-        self.legal_actions = state.getLegalActions()
-        self.action = action
-        self.children = []
+        self.root = root
+        #self.legal_actions = root.getLegalActions()
+        #self.action = action
+        #self.children = []
         #self.leaf = state.select()
         self.visits = 0
         self.reward = 0
-        self.untried_actions = state.getLegalActions()  # All legal actions
+        #self.untried_actions = root.getLegalActions()  # All legal actions
     
+    def create_relations(self, parent, child):
+        if parent not in self.relations:
+            self.relations[parent] = child
+        else:
+            self.relations[parent].append(child)
+                         
     def print_tree(self):
-        print(f"state: {self.state}")
-        print(f"parent: {self.parent}")
-        print(f"action: {self.action}")
+        print("printing tree\n")
+        #print(f"state: {self.state}")
+        print(f"root of the tree: {self.root}")
+        #print(f"action: {self.action}")
+        print(f"tree from root: {self.relations}")
         print(f"children: {self.children}")
         #print(f"visits: {self.visits}")
         #print(f"reward: {self.reward}")
@@ -268,8 +277,12 @@ class TreeNode:
         print(f"self.legal_actions : {self.legal_actions}")
         self.random.choice(self.legal_actions)
 
+    #def extend_tree(self):
+    
     def add_child(self, child_node):
         self.children.append(child_node)
+        print("updating children")
+        print(f"self.children: {self.children}")
 
     def best_child(self):
         # Use UCT formula to select the best child (maximize reward and visits)
@@ -288,15 +301,15 @@ class TreeNode:
         self.reward += reward
 
     def is_terminal(self):
-        #return True
+        return True
         # Check if the node is terminal (game over or no more legal actions)
         #print("self.state: " + str(self.state))
-        print(f"self.gameState: {self.state}")
+        #print(f"self.gameState: {self.state}")
         #print(f"self.game.gameOver: {self.game.gameOver}")
         #return self.game.gameOver
 
     def is_fully_expanded(self):
-        print("check this")
+        print("inside is_fully_expanded")
         print(f"len(self.untried_actions): {len(self.untried_actions)}")
         if (len(self.untried_actions) == 0):
             return True
@@ -306,3 +319,5 @@ class TreeNode:
     def has_child(self, action):
         return any(child.action == action for child in self.children)
 
+    def expand(self, action):
+        self.relatio

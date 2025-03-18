@@ -474,7 +474,7 @@ class AgentRules:
     Edits the state to reflect the results of the action.
     """
     legal = AgentRules.getLegalActions( state, agentIndex )
-    print("legal actions: ", legal)
+    #print("legal actions: ", legal)
     if action not in legal:
       raise Exception("Illegal action " + str(action))
 
@@ -816,7 +816,7 @@ def readCommand( argv ):
                     help='Catch exceptions and enforce time limits')
 
   options, otherjunk = parser.parse_args(argv)
-  print(f"options: {options}")
+  #print(f"options: {options}")
   assert len(otherjunk) == 0, "Unrecognized options: " + str(otherjunk)
   args = dict()
 

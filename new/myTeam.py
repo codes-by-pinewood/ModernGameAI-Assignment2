@@ -1,6 +1,6 @@
 from captureAgents import CaptureAgent
 import random, time, util
-from treeNode import TreeNode
+from treeNode import Tree
 from game import Directions
 import game
 
@@ -62,10 +62,11 @@ class MCTSAgent(CaptureAgent):
 
     IMPORTANT: This method may run for at most 15 seconds.
     """
-    self.root = TreeNode(gameState)
-    self.root.print_tree()
-    print("root: ", self.root)
-    print("root.state: ", self.root.state)
+    print("ROOT: \n")
+    self.tree = Tree(root = gameState)
+    self.tree.print_tree()
+    print("tree: ", self.tree)
+
 
     '''
     Make sure you do not delete the following line. If you would like to
@@ -83,15 +84,16 @@ class MCTSAgent(CaptureAgent):
     Your initialization code goes here, if you need any.
     '''
     
-
-
-  def chooseAction(self, gameState):
+  def chooseAction(self, node):
     """
     Picks among actions randomly.
     """
+    print("choose action")
+    # self.tree.root
+    #print("root: ", node)
     num_simulations = 5
-    actions = gameState.getLegalActions(self.index)
-    print(f"legal action: {actions}")
+    print("number of simulations")
+    actions = node.getLegalActions(self.index)
   
     '''
     You should change this in your own agent.
@@ -100,21 +102,25 @@ class MCTSAgent(CaptureAgent):
     #self.state.process
 
     for _ in range(num_simulations):
-      leaf = self.select(self.root) # TODO change to something smarter later
-      print(f"leaf: {leaf}")
+      next_node = self.tree.select() 
+      print(f"node: {next_node}")
       print("simulating")
-
-      print("leaf.is_terminal(): ", leaf.is_terminal())
+      
+      print("node.is_fully_expanded(): ", next_node.is_fully_expanded())
     
-      if not leaf.is_fully_expanded():
-        print("are we here 2? ")
-        self.expand(leaf)
+      if not next_node.is_fully_expanded():
+        print("next_node is not fully expanded ")
+        selected_action = random.choice(next_node.untried_actions)
+        child = next_node.state.generateSuccessor(self.index, selected_action)
+        self.tree.create_relations(next_node, child)
+
 
       # Simulation
-      reward = self.simulate(leaf)
+
+      reward = self.simulate(node)
 
       # Backpropagation
-      self.backpropagate(leaf, reward)
+      self.backpropagate(node, reward)
 
     # After the simulations, select the best child (best action)
     best_child = self.root.best_child()
@@ -127,7 +133,7 @@ class MCTSAgent(CaptureAgent):
   
   def select(self, node):
     #print("are we here?")
-    while not node.is_terminal() and node.is_fully_expanded():
+    while not node.is_fully_expanded():
       #print("select a node")
       node = node.best_child()
     return node
@@ -138,14 +144,17 @@ class MCTSAgent(CaptureAgent):
     Expand the node by choosing an untried action and creating a new child.
     """
     print("expanding tree")
-    action = node.untried_actions.pop()
-    print(f"action: {action}")
-    new_state = node.state.generateSuccessor(self.index, action)  # Generate the next state
-    print(f"new_state: {new_state}")
-    child_node = TreeNode(new_state, parent=node, action=action)
-    child_node.print_tree()
-    print(f"child_node: {child_node}")
-    node.add_child(child_node)
+    #action = node.untried_actions.pop()
+    print(f"action dksjds: {action}")
+    child = node.state.generateSuccessor(self.index, action)  # Generate the next state
+    # print("is it not working here")
+    #print(f"new_state: {new_state}")
+    #child_node = TreeNode(new_state, parent=node, action=action)                                                                                                                                                                     
+    node.add_child(child, action)
+
+    node.print_tree()
+    #print(f"child_node: {child_node}")
+  
 
 
 
