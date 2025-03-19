@@ -92,62 +92,56 @@ class MCTSAgent(CaptureAgent):
     '''
     You should change this in your own agent.
     '''
-
+    self.tree = Tree(root = node)
+    root = node
 
     for _ in range(num_simulations):
     
-      # if not self.tree.is_fully_expanded(node):
-      selected_action = random.choice(node.getLegalActions())
-      print(f"LEGAL ACTIONS: {node.getLegalActions()}")
-      print(f"SELECTED ACTION: {selected_action}")
+      selected_action = random.choice(node.getLegalActions(self.index))
       child = node.generateSuccessor(self.index, selected_action)
       self.tree.update_visited_nodes(child)
       self.tree.create_relations(node, child, selected_action)
-      print("I am past created relations")
-
       node = child
 
     # HERE the simulation stops and the updates start
 
     # Simulation
     reward = self.getScore(node)
-    # print(f"reward {reward}")
 
     # Backpropagation
     self.tree.backpropagate(reward)
 
     # After the simulations, select the best child (best action)
     best_action = self.tree.return_best_action()
-    child_node = node.generateSuccessor(self.index, best_action)
+    child_node = root.generateSuccessor(self.index, best_action)
     # Update the tree root 
     self.tree.root = child_node
 
     print(f"Best action chosen: {best_action}")
     return best_action
-    #print(f"chosen_action: {chosen_action}")
-    #self.root.add_child(chosen_action) # make sure actions are legal and defined
 
-    #return random.choice(actions)
+
+## CURRENTLY NOT USED
   
-  def select(self, node):
-    #print("are we here?")
-    while not node.is_fully_expanded():
-      #print("select a node")
-      node = node.best_child()
-    return node
+  # def select(self, node):
+  #   #print("are we here?")
+  #   while not node.is_fully_expanded():
+  #     #print("select a node")
+  #     node = node.best_child()
+  #   return node
   
 
-  def simulate(self, node):
-      """
-      Simulate a random playthrough from the given node.
-      """
-      current_state = node.state
-      while not current_state.isGameOver():
-          legal_actions = current_state.getLegalActions(self.index)
-          action = random.choice(legal_actions)  # Randomly pick an action
-          current_state = current_state.generateSuccessor(self.index, action)
-      return self.evaluate_reward(current_state)
+  # def simulate(self, node):
+  #     """
+  #     Simulate a random playthrough from the given node.
+  #     """
+  #     current_state = node.state
+  #     while not current_state.isGameOver():
+  #         legal_actions = current_state.getLegalActions(self.index)
+  #         action = random.choice(legal_actions)  # Randomly pick an action
+  #         current_state = current_state.generateSuccessor(self.index, action)
+  #     return self.evaluate_reward(current_state)
 
 
-  def evaluate_reward(self, gameState):
-      return gameState.getScore()  # You can customize this depending on your agent's strategy
+  # def evaluate_reward(self, gameState):
+  #     return gameState.getScore()  # You can customize this depending on your agent's strategy

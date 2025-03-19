@@ -246,15 +246,11 @@ import random
 class Tree:
     def __init__(self, root=None, action=None):
         self.relations = {}
-        # self.untried_actions_dict = {}  
         self.root = root
         self.visited_nodes = []
         self.reward_dict = {}
-        # self.tried_actions_reward_dict = {}
 
-        # self.initialize_untrained_actions()
         self.initialize_reward_dict()
-        # self.initialize_tried_actions_reward_dict()
     
     def return_best_action(self):
         """
@@ -267,29 +263,24 @@ class Tree:
         CURRENT ISSUE:
         We cannot isolate the best action to take after the simulation. Return illigal actions or None
         """
-        # roots_children = self.relations.get(self.root)
-        roots_children = [child for child, action in self.relations[self.root]]
+        roots_relations = [(child, action) for child, action in self.relations.get(self.root)]
+        roots_children = [t[0] for t in roots_relations] 
 
-        print(f"roots_children: {roots_children}")
+        best_child = max(
+            (k for k in roots_children if k in self.reward_dict),
+            key=self.reward_dict.get,
+            default=None
+        )
 
-        best_child = max(roots_children, key=lambda roots_children: self.reward_dict.get(roots_children, float('-inf')))
-
-        # best_child = max(self.reward_dict, key=lambda k: roots_children)
-        print(f"best child {best_child}")
-        for child in roots_children:
-            if stored_child == best_child:
+        for child, action in roots_relations:
+            if child == best_child:
                 return action 
 
-    # def initialize_tried_actions_reward_dict(self):
-    #     keys = self.root.getLegalActions()  
-    #     self.tried_actions_reward_dict = dict.fromkeys(keys, 0)
-
-    # def initialize_untrained_actions(self):
-    #     self.untried_actions_dict[self.root] = self.root.getLegalActions()   
 
     def initialize_reward_dict(self):
         self.reward_dict[self.root] = 0
     
+
     def create_relations(self, parent, child, action):
         """
         Expand the tree by:
@@ -301,67 +292,12 @@ class Tree:
             self.relations[parent] = [(child, action)]
         else:
             self.relations[parent].append((child, action))
-        print("RELATIONS CREATED")
-        print(self.relations[parent])
-        
-        # Remove the just tried action
-        # self.untried_actions_dict[parent].remove(action)
 
-        # Fill in the legal actions of the child
-        # self.untried_actions_dict[child] = child.getLegalActions()
-        
                          
     def print_tree(self):
         print("printing tree\n")
         print(f"root of the tree: {self.root}")
         print(f"tree from root: {self.relations}")
-        # print(f"children: {self.children}")
-        #print(f"untried_actions: {self.untried_actions}")
-
-    def select(self):
-        print(f"self.legal_actions : {self.legal_actions}")
-        self.random.choice(self.legal_actions)
-        
-    def get_random_child(self, node):
-        print(f"self.relations[node]: {self.relations[node]}")
-        return random.choice([self.relations[node]])
-    
-            
-    def add_child(self, child_node):
-        self.children.append(child_node)
-        print("updating children")
-        print(f"self.children: {self.children}")
-
-    def best_child(self):
-        # Use UCT formula to select the best child (maximize reward and visits)
-        best_value = float('-inf')
-        best_node = None
-        for child in self.children:
-            uct_value = child.reward / (child.visits + 1) + 2 * (2 * math.log(self.visits + 1) / (child.visits + 1))**0.5
-            if uct_value > best_value:
-                best_value = uct_value
-                best_node = child
-        return best_node
-
-    def update(self, reward):
-        # Update the node's statistics after a simulation
-        self.visits += 1
-        self.reward += reward
-
-    def is_terminal(self):
-        return True
-        # Check if the node is terminal (game over or no more legal actions)
-        #print("self.state: " + str(self.state))
-        #print(f"self.gameState: {self.state}")
-        #print(f"self.game.gameOver: {self.game.gameOver}")
-        #return self.game.gameOver
-
-    # def is_fully_expanded(self, node):
-    #     return (len(self.untried_actions_dict.get(node, [])) == 0)
-
-
-    def has_child(self, action):
-        return any(child.action == action for child in self.children)
 
     def update_visited_nodes(self, child):
         self.visited_nodes.append(child)
@@ -375,9 +311,55 @@ class Tree:
 
             initial_reward = self.reward_dict[node]
             self.reward_dict[node] += (1 / num_states) * (reward - initial_reward) 
-        #self.tried_actions_reward_dict = {}
 
         self.visited_nodes = []
+
+
+# CUURENTLY NOT USED
+
+    # def select(self):
+    #     print(f"self.legal_actions : {self.legal_actions}")
+    #     self.random.choice(self.legal_actions)
+        
+    # def get_random_child(self, node):
+    #     print(f"self.relations[node]: {self.relations[node]}")
+    #     return random.choice([self.relations[node]])
+    
+    # def add_child(self, child_node):
+    #     self.children.append(child_node)
+    #     print("updating children")
+    #     print(f"self.children: {self.children}")
+
+    # def best_child(self):
+    #     # Use UCT formula to select the best child (maximize reward and visits)
+    #     best_value = float('-inf')
+    #     best_node = None
+    #     for child in self.children:
+    #         uct_value = child.reward / (child.visits + 1) + 2 * (2 * math.log(self.visits + 1) / (child.visits + 1))**0.5
+    #         if uct_value > best_value:
+    #             best_value = uct_value
+    #             best_node = child
+    #     return best_node
+
+    # def update(self, reward):
+    #     # Update the node's statistics after a simulation
+    #     self.visits += 1
+    #     self.reward += reward
+
+    # def is_terminal(self):
+    #     return True
+        # Check if the node is terminal (game over or no more legal actions)
+        #print("self.state: " + str(self.state))
+        #print(f"self.gameState: {self.state}")
+        #print(f"self.game.gameOver: {self.game.gameOver}")
+        #return self.game.gameOver
+
+    # def is_fully_expanded(self, node):
+    #     return (len(self.untried_actions_dict.get(node, [])) == 0)
+
+
+    # def has_child(self, action):
+    #     return any(child.action == action for child in self.children)
 
         # self.update_tried_actions_reward_dict()
 
