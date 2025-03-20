@@ -106,7 +106,12 @@ class MCTSAgent(CaptureAgent):
     # HERE the simulation stops and the updates start
 
     # Simulation
-    reward = self.getScore(node)
+    food_heuristic = self.food_based_heuristic_reward(node)
+    weight_heuristic = self.get_weights_food_based_heuristic()
+    food_weighted = food_heuristic * weight_heuristic
+    reward = self.getScore(node) + food_weighted
+    print(f"reward {reward}")
+
 
     # Backpropagation
     self.tree.backpropagate(reward)
@@ -119,6 +124,28 @@ class MCTSAgent(CaptureAgent):
 
     print(f"Best action chosen: {best_action}")
     return best_action
+  
+  def food_based_heuristic_reward(self, successor):
+    # TODO check weights later
+    features = util.Counter()
+    foodList = self.getFood(successor).asList()    
+    features['successorScore'] = -len(foodList) # the more food not in our belly => worse
+
+    # Compute distance to the nearest food
+
+    if len(foodList) > 0: # This should always be True,  but better safe than sorry
+      myPos = successor.getAgentState(self.index).getPosition()
+      minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
+      features['distanceToFood'] = minDistance
+    return features
+  
+
+  def get_weights_food_based_heuristic(self):
+    return {'successorScore': 100, 'distanceToFood': -1}
+  
+
+  
+
 
 
 ## CURRENTLY NOT USED
