@@ -93,6 +93,7 @@ class MCTSAgent(CaptureAgent):
     You should change this in your own agent.
     '''
     self.tree = Tree(root = node)
+    self.tree.update_times_visited(node)
     root = node
 
     for _ in range(num_simulations):
@@ -109,9 +110,10 @@ class MCTSAgent(CaptureAgent):
     food_heuristic = self.food_based_heuristic_reward(node)
     weight_heuristic = self.get_weights_food_based_heuristic()
     food_weighted = food_heuristic * weight_heuristic
-    reward = self.getScore(node) + food_weighted
-    print(f"reward {reward}")
 
+
+    reward = self.getScore(node) + food_weighted 
+    print(f"reward {reward}")
 
     # Backpropagation
     self.tree.backpropagate(reward)
@@ -119,8 +121,13 @@ class MCTSAgent(CaptureAgent):
     # After the simulations, select the best child (best action)
     best_action = self.tree.return_best_action()
     child_node = root.generateSuccessor(self.index, best_action)
+
+    # Store reward dict for later
+    prev_reward_dict = self.tree.reward_dict
+
     # Update the tree root 
     self.tree.root = child_node
+    self.tree.reward_dict = prev_reward_dict
 
     print(f"Best action chosen: {best_action}")
     return best_action
@@ -143,6 +150,7 @@ class MCTSAgent(CaptureAgent):
   def get_weights_food_based_heuristic(self):
     return {'successorScore': 100, 'distanceToFood': -1}
   
+
 
   
 

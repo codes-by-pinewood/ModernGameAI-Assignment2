@@ -249,8 +249,14 @@ class Tree:
         self.root = root
         self.visited_nodes = []
         self.reward_dict = {}
+        self.times_visited = {}
 
         self.initialize_reward_dict()
+    
+    def update_times_visited(self, node):
+        if node not in self.times_visited:
+            self.times_visited[node] = 0
+        self.times_visited[node] += 1
     
     def return_best_action(self):
         """
@@ -301,8 +307,10 @@ class Tree:
 
     def update_visited_nodes(self, child):
         self.visited_nodes.append(child)
+        self.update_times_visited(child)
 
     def backpropagate(self, reward):
+        print(f"reward dict before", self.reward_dict.values())
         num_states = len(self.visited_nodes)
 
         for node in self.visited_nodes:
@@ -313,7 +321,30 @@ class Tree:
             self.reward_dict[node] += (1 / num_states) * (reward - initial_reward) 
 
         self.visited_nodes = []
+        print(f"reward dict after", self.reward_dict.values())
 
+    def value(self, node, explore = 0.5):
+        """
+        Calculate the UCT value of this node relative to its parent, the parameter
+        "explore" specifies how much the value should favor nodes that have
+        yet to be thoroughly explored versus nodes that seem to have a high win
+        rate.
+        Currently explore is set to 0.5.
+
+        """
+        # if the node is not visited, set the value as infinity. Nodes with no visits are on priority
+        # (lambda: print("a"), lambda: print("b"))[test==true]()
+
+        parent = node.getPreviousObservation()
+        avg_reward = self.reward_dict[node]
+
+        if self.times_visited[node] == 0:
+            return 0 if explore == 0 else -1
+        else:
+            return avg_reward / self.times_visited[node] + explore * math.sqrt(2 * math.log(self.times_visited[parent]) / self.times_visited[node])
+
+
+# TODO: reward dict is emptied every root switch BAD dix it, avg_reward = self.reward_dict[node]
 
 # CUURENTLY NOT USED
 
