@@ -110,7 +110,8 @@ class MCTSAgent(CaptureAgent):
 
         for _ in range(length_of_one_sim_path):
             # Step
-            selected_action = random.choice(node.getLegalActions(self.index))
+            # selected_action = random.choice(node.getLegalActions(self.index))
+            selected_action = self.select_uct_action(node)
             # selected_action = select_uct_action
             child = node.generateSuccessor(self.index, selected_action)
 
@@ -184,6 +185,40 @@ class MCTSAgent(CaptureAgent):
   #           best_score = uct_score
   #           best_child = child
   #   return best_child
+  def select_uct_action(self, node, explore=1.4):
+      """
+      Select the best action from this node using UCT.
+
+      Args:
+          node: The current gameState node.
+          explore: Exploration constant. Higher values favor less visited nodes.
+
+      Returns:
+          action (Direction): The best action based on UCT value.
+      """
+      if node not in self.tree.relations:
+          return random.choice(node.getLegalActions(self.index))  # No children, fallback
+
+      best_score = float('-inf')
+      best_action = None
+
+      parent_visits = self.tree.times_visited.get(node, 1)
+
+      for child, action in self.tree.relations[node]:
+          child_visits = self.tree.times_visited.get(child, 0)
+          total_reward = self.global_reward_dict.get(child, 0)
+
+          if child_visits == 0:
+              return action  # Try unvisited node immediately
+
+          avg_reward = total_reward / child_visits
+          uct_score = avg_reward + explore * math.sqrt(math.log(parent_visits) / child_visits)
+
+          if uct_score > best_score:
+              best_score = uct_score
+              best_action = action
+
+      return best_action if best_action is not None else random.choice(node.getLegalActions(self.index))
 
 
   
