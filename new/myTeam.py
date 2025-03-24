@@ -11,7 +11,7 @@ import math
 #################
 
 def createTeam(firstIndex, secondIndex, isRed,
-               first = 'OffenseMCTSAgent', second = 'DefenseMCTSAgent'):
+               first = 'OffenseMCTSAgent', second = 'OffenseMCTSAgent'):
   """
   This function should return a list of two agents that will form the
   team, initialized using firstIndex and secondIndex as their agent
@@ -26,11 +26,6 @@ def createTeam(firstIndex, secondIndex, isRed,
   any extra arguments, so you should make sure that the default
   behavior is what you want for the nightly contest.
   """
-  #print("firstIndex: ", firstIndex)
-  #print("secondIndex: ", secondIndex)
-  #print("eval(first)(firstIndex): ", eval(first)(firstIndex))
-  #print("eval(second)(secondIndex): ", eval(second)(secondIndex))
-
   # The following line is an example only; feel free to change it.
   return [eval(first)(firstIndex), eval(second)(secondIndex)]
 
@@ -48,12 +43,15 @@ class MCTSAgent(CaptureAgent):
 
 
   def initialize_global_reward_dict(self):
+    """
+    Sets the reward of the root state to 0.
+    """
     if self.root not in self.global_reward_dict:  
       self.global_reward_dict[self.root] = 0
   
 
-  def update_global_reward_dict(self, node, reward):
-    self.global_reward_dict[node] = reward
+  # def update_global_reward_dict(self, node, reward):
+  #   self.global_reward_dict[node] = reward
 
 
   def registerInitialState(self, gameState):
@@ -68,10 +66,7 @@ class MCTSAgent(CaptureAgent):
 
     IMPORTANT: This method may run for at most 15 seconds.
     """
-    print("ROOT: \n")
     self.tree = Tree(root = gameState)
-    self.tree.print_tree()
-    print("tree: ", self.tree)
     self.visited_gamestates = []
 
     '''
@@ -86,18 +81,18 @@ class MCTSAgent(CaptureAgent):
     # Set the root of the tree, add it to visited game states
     root = node
     self.visited_gamestates.append(root)
-    # self.tree.update_visited_nodes(root)
 
     # Choose number of simulations and their length
     num_simulations = 5
-    length_of_one_sim_path = 5
+    length_of_one_sim_path = 15
 
-    # For each simulation, dict: key-simulation path, vale-reward; list: all simulations' paths
+    # For each simulation, dict: key-simulation path, value-reward; list: all simulations' paths; reverse penalty score for each simulation
     simulation_rewards = {} 
     simulation_paths = []
+    reverse_penalties = []
+
 
     for sim_idx in range(num_simulations):
-        print(f"sim number {sim_idx + 1}")
         # Start each simulation from the original root
         node = root  
           
@@ -105,15 +100,18 @@ class MCTSAgent(CaptureAgent):
         simulation_path = []
         action_path = []
 
-        # Append root NOT NECESSARY FOR LOGIC
-        # simulation_path.append(node)
+        prev_action = None
+        reverse_penalty = 0
 
         for _ in range(length_of_one_sim_path):
             # Step
-            # selected_action = random.choice(node.getLegalActions(self.index))
-            selected_action = self.select_uct_action(node)
-            # selected_action = select_uct_action
+            # selected_action = self.select_uct_action(node)
+            selected_action = self.heuristic_action(node)
             child = node.generateSuccessor(self.index, selected_action)
+
+            # Penalize reverse moves
+            if prev_action and prev_action == Directions.REVERSE[selected_action]:
+                reverse_penalty += -100
 
             # Update
             self.tree.update_visited_nodes(child)
@@ -125,100 +123,129 @@ class MCTSAgent(CaptureAgent):
 
             # Move to next state
             node = child  
+            prev_action = selected_action
 
+            # Ensure the visited state is in the reward dict
             if node not in self.global_reward_dict:
                self.global_reward_dict[node] = 0
             
-        # Append the whole path
+        # After the end of a simulation, append the whole path and reverse penalties
         simulation_paths.append(simulation_path)
+        reverse_penalties.append(reverse_penalty)
+
 
     # After ALL simulation are done, update the reward
     for i in range(len(simulation_paths)):
       leaf_of_simulation = simulation_paths[i][-1]
-      print(type(leaf_of_simulation))
         
       # Compute reward
-      reward = self.getScore(leaf_of_simulation) + self.evaluate_state_reward(leaf_of_simulation)  
+      reward = self.evaluate_state_reward(leaf_of_simulation) # self.getScore(leaf_of_simulation) + 
+      reward += reverse_penalties[i]
       print(f"reward {reward}")
       
       # Backpropagate along this simulation path
-      # self.global_reward_dict = self.tree.back_propagate(uct_reward, reward, self.global_reward_dict, simulation_paths[i])
       self.tree.correct_backprop(leaf_of_simulation, reward, self.global_reward_dict)
-
       simulation_rewards[f"simulation_{sim_idx+1}"] = {"path": simulation_paths[i], "reward": reward, "action_path": action_path}
 
-        
-    # Store reward dict for later
-    max_reward = float('-inf')
-    for sim_idx, sim_data in simulation_rewards.items():
-      if sim_data["reward"] > max_reward:
-          max_reward = sim_data["reward"]
-          best_simulation = sim_data  # Get the path and actions for this simulation
+    # BEFORE
+    # this chooses the first action of the simulation that resulted in the higest reward. that could be random
+    # # Store reward dict for later
+    # max_reward = float('-inf')
+    # for sim_idx, sim_data in simulation_rewards.items():
+    #   if sim_data["reward"] > max_reward:
+    #       max_reward = sim_data["reward"]
+    #       best_simulation = sim_data  
 
-    # if best_simulation:
-    print(f"Best simulation: Path: {best_simulation['path']} | Reward: {best_simulation['reward']} | Action Path: {best_simulation['action_path']}")
-    best_action = best_simulation["action_path"][0]  # Take the first action in the best action path
-    # else:
-        # best_action = random.choice(root.getLegalActions(self.index))  # Fallback if no good simulation
+    # # if best_simulation:
+    # print(f"Best simulation: Path: {best_simulation['path']} | Reward: {best_simulation['reward']} | Action Path: {best_simulation['action_path']}")
+    # best_action = best_simulation["action_path"][0]  # Take the first action in the best action path
 
+    # AFTER
+    # instead, we want to track the best total reward per first action, then pick the action with the best average (or max) performance.
+
+    # Group rewards by first action
+    action_to_rewards = {}
+
+    for sim_data in simulation_rewards.values():
+        first_action = sim_data["action_path"][0]
+        reward = sim_data["reward"]
+
+        if first_action not in action_to_rewards:
+            action_to_rewards[first_action] = []
+
+        action_to_rewards[first_action].append(reward)
+
+    # Choose action with highest average reward
+    action_avg_rewards = {
+        action: sum(rewards) / len(rewards)
+        for action, rewards in action_to_rewards.items()
+    }
+    best_action = max(action_avg_rewards.items(), key=lambda x: x[1])[0]
     print("best_action: ", best_action)
 
     # Update the tree root 
-    child_node = root.generateSuccessor(self.index, best_action)
-    self.visited_gamestates.append(child_node)
-    
+    child_node = root.generateSuccessor(self.index, best_action)    
     self.tree.root = child_node
     self.tree.visited_nodes = []
 
+    # Add the child to already visited gamestates
+    self.visited_gamestates.append(child_node)
+
     return best_action
   
-  # def uct_select(self, node):
-  #   best_score = float('-inf')
-  #   best_child = None
-  #   for child, action in self.tree.relations[node].items():
-  #       if child.visits == 0:
-  #           return child
-  #       avg_reward = child.total_reward / child.visits
-  #       exploration = math.sqrt(math.log(node.visits) / child.visits)
-  #       uct_score = avg_reward + self.C * exploration
-  #       if uct_score > best_score:
-  #           best_score = uct_score
-  #           best_child = child
-  #   return best_child
-  def select_uct_action(self, node, explore=1.4):
-      """
-      Select the best action from this node using UCT.
 
-      Args:
-          node: The current gameState node.
-          explore: Exploration constant. Higher values favor less visited nodes.
+  # def select_uct_action(self, node, explore=2.0):
+  #     """
+  #     Select the best action from this node using UCT.
 
-      Returns:
-          action (Direction): The best action based on UCT value.
-      """
-      if node not in self.tree.relations:
-          return random.choice(node.getLegalActions(self.index))  # No children, fallback
+  #     Args:
+  #         node: The current gameState node.
+  #         explore: Exploration constant. Higher values favor less visited nodes.
+
+  #     Returns:
+  #         action (Direction): The best action based on UCT value.
+  #     """
+  #     if node not in self.tree.relations:
+  #         legal_actions = [a for a in node.getLegalActions(self.index) if a != Directions.STOP]
+  #         return random.choice(legal_actions)  
+
+  #     best_score = float('-inf')
+  #     best_action = None
+
+  #     parent_visits = self.tree.times_visited.get(node, 1)
+
+  #     for child, action in self.tree.relations[node]:
+  #         child_visits = self.tree.times_visited.get(child, 0)
+  #         total_reward = self.global_reward_dict.get(child, 0)
+
+  #         if child_visits == 0:
+  #             return action  # Try unvisited node immediately
+
+  #         avg_reward = total_reward / child_visits
+  #         uct_score = avg_reward + explore * math.sqrt(math.log(parent_visits) / child_visits)
+
+  #         if uct_score > best_score:
+  #             best_score = uct_score
+  #             best_action = action
+
+  #     return best_action if best_action is not None else random.choice(node.getLegalActions(self.index))
+
+  def heuristic_action(self, gameState):
+      actions = gameState.getLegalActions(self.index)
+      actions = [a for a in actions if a != Directions.STOP]
 
       best_score = float('-inf')
       best_action = None
 
-      parent_visits = self.tree.times_visited.get(node, 1)
-
-      for child, action in self.tree.relations[node]:
-          child_visits = self.tree.times_visited.get(child, 0)
-          total_reward = self.global_reward_dict.get(child, 0)
-
-          if child_visits == 0:
-              return action  # Try unvisited node immediately
-
-          avg_reward = total_reward / child_visits
-          uct_score = avg_reward + explore * math.sqrt(math.log(parent_visits) / child_visits)
-
-          if uct_score > best_score:
-              best_score = uct_score
+      for action in actions:
+          successor = gameState.generateSuccessor(self.index, action)
+          score = self.evaluate_state_reward(successor)
+          if score > best_score:
+              best_score = score
               best_action = action
 
-      return best_action if best_action is not None else random.choice(node.getLegalActions(self.index))
+      return best_action if best_action else random.choice(actions)
+
 
 
   
@@ -228,11 +255,15 @@ class OffenseMCTSAgent(MCTSAgent):
   """
 
   def evaluate_state_reward(self, successor):
-    print("Offense evaluate state reward")
+    # print("Offense evaluate state reward")
     features = self.food_based_heuristic_reward(successor)
+    # print("Features:", features)
     weights = self.get_weights_offense()
+    # print("Weights:", weights)
     reward = features * weights
+    # print("Heuristic reward:", reward)
     return reward
+
 
       
   def food_based_heuristic_reward(self, successor):
@@ -246,6 +277,37 @@ class OffenseMCTSAgent(MCTSAgent):
       myPos = successor.getAgentState(self.index).getPosition()
       minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
       features['distanceToFood'] = minDistance
+
+    # Only consider ghosts if we are on the opponent’s side (i.e., we are Pacman)
+    myState = successor.getAgentState(self.index)
+    if myState.isPacman:
+        ghosts = [successor.getAgentState(i) for i in self.getOpponents(successor)]
+        visibleGhosts = [g for g in ghosts if not g.isPacman and g.getPosition() is not None]
+        if visibleGhosts:
+            myPos = myState.getPosition()
+            ghostDistances = [self.getMazeDistance(myPos, g.getPosition()) for g in visibleGhosts]
+            minGhostDist = min(ghostDistances)
+            features['distanceToGhost'] = minGhostDist  # Larger = safer
+
+    # Only consider the distance to boundary if we are on our side (i.e., we are ghost)
+    else:
+      # Feature - distance to boundary. While offense ghost, the closer it is to the boundary, the better
+      mid_x = successor.getWalls().width // 2
+      if self.red:
+          mid_x = mid_x - 1  
+      else:
+          mid_x = mid_x  
+      
+      boundary_y = [y for y in range(successor.getWalls().height) 
+                  if not successor.hasWall(mid_x, y)]
+      
+      # Calculate distances to boundary positions
+      boundary_distances = [self.getMazeDistance(myState.getPosition(), (mid_x, y)) 
+                          for y in boundary_y]
+      # Distance to closest boundary point
+      distance_to_boundary = min(boundary_distances) if boundary_distances else 0
+
+      features['distance_to_boundary'] = distance_to_boundary
     return features
   
 
@@ -253,7 +315,9 @@ class OffenseMCTSAgent(MCTSAgent):
     '''
     heuristic based on offensive strategy: getting more food. 
     '''
-    return {'successorScore': 100, 'distanceToFood': -1}
+    return {'successorScore': 100, 'distanceToFood': -1, 'distanceToGhost': 10, 'distance_to_boundary': -1000}
+
+
 
 class DefenseMCTSAgent(MCTSAgent):
   """
