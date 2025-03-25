@@ -4,6 +4,9 @@ from treeNode import Tree
 from game import Directions
 import game
 import json
+from collections import defaultdict
+
+import math
 
 #################
 # Team creation #
@@ -70,10 +73,8 @@ class MCTSAgent(CaptureAgent):
 
     IMPORTANT: This method may run for at most 15 seconds.
     """
-    #print("ROOT: \n")
+
     self.tree = Tree(root = gameState)
-    #self.tree.print_tree()
-    #print("tree: ", self.tree)
 
 
     '''
@@ -82,130 +83,68 @@ class MCTSAgent(CaptureAgent):
     on initialization time, please take a look at
     CaptureAgent.registerInitialState in captureAgents.py.
     '''
-    # TODO call create graph
-    #print(f"game_State:\n {gameState}")
+    # TODO call create graph)
     
-
     CaptureAgent.registerInitialState(self, gameState)
+  
+  def compute_reward(self, node):
 
-    '''
-    Your initialization code goes here, if you need any.
-    '''
+    #print("selected_action: ", selected_action)
+    #stop_penalty = -1000 if selected_action == "STOP" else 0
+    food_features = self.food_based_heuristic_reward(node)
+    enemy_features = self.enemy_based_heuristic_reward(node)
+  
+    #stop_features = {'stopPenalty': stop_penalty}
+    features = {**food_features, **enemy_features}#, **stop_features}
+    
+    # Get weights for each feature 
+    weights = self.get_weights()
+    reward = sum(features[k] * weights[k] for k in features if k in weights)
+    return reward
+
   '''
-    def chooseAction(self, node):
-      """
-      Picks among actions randomly.
-      """
-      num_simulations = 5
-      
-      You should change this in your own agent.
-      
-      self.tree = Tree(root = node)
-      self.tree.update_times_visited(node)
-      root = node
-      length_of_one_sim_path = 5 
-
-      for _ in range(num_simulations):
-        for _ in range(length_of_one_sim_path):
-        #print(f"step {i} ")
-          selected_action = random.choice(node.getLegalActions(self.index))
-          child = node.generateSuccessor(self.index, selected_action)
-          self.tree.update_visited_nodes(child)
-          self.tree.create_relations(node, child, selected_action)
-          #previous_node = node
-          node = child
-          root = node
-
-      # HERE the simulation stops and the updates start
-      #self.tree.update_visited_nodes(node)
-      # Simulation
-      food_heuristic = self.food_based_heuristic_reward(node)
-      weight_heuristic = self.get_weights_food_based_heuristic()
-      food_weighted = food_heuristic * weight_heuristic
-
-
-      reward = self.getScore(node) + food_weighted 
-      #print(f"reward {reward}")
-
-      # Backpropagation
-      #self.tree.backpropagate(reward)
-      #print("self.reward_dict here: ", self.tree.reward_dict)
-      updated_reward_dict = self.tree.new_propagate(reward, self.reward_dict)
-      self.reward_dict = updated_reward_dict
-      # After the simulations, select the best child (best action)
-      best_action = self.tree.return_best_action(self.reward_dict)
-      #print(f"best_action: {best_action}")
-
-      child_node = root.generateSuccessor(self.index, best_action)
-
-      # Store reward dict for later
-      prev_reward_dict = self.tree.reward_dict
-
-      # Update the tree root 
-      self.tree.root = child_node
-      self.tree.reward_dict = prev_reward_dict
-
-      #print(f"Best action chosen: {best_action}")
-      return best_action
-    '''
-
   def chooseAction(self, node):
       """
       Picks among actions randomly.
       """
       root = node
-      print("root at start of the chooseAction function: ", root)
+      #print("root at start of the chooseAction function: ", root)
       num_simulations = 5
       length_of_one_sim_path = 5
       simulation_rewards = {}  # Store rewards for root state of each simulation
-      action_dict = {}
 
-      best_root_reward = float('-inf')  # Track best root reward
-      best_simulation_path = None       # Track best path
-
-      
       for sim_idx in range(num_simulations):
+          print(f"Simulation {sim_idx}")
           node = root  # Start each simulation from the original root
           simulation_path = []
           action_path = []
+          visited_states = set()
+          visited_states.add(node)
           simulation_path.append(node)
 
-          for _ in range(length_of_one_sim_path):
-              #simulation_path.append(node)
-              selected_action = random.choice(node.getLegalActions(self.index))
-              action_path.append(selected_action)
-              child = node.generateSuccessor(self.index, selected_action)
+          for i in range(length_of_one_sim_path):
+            selected_action = random.choice(node.getLegalActions(self.index))
+            action_path.append(selected_action)
+            child = node.generateSuccessor(self.index, selected_action)
 
-              if child is None:
-                  break
+            if child is None:
+                break
 
-              self.tree.update_visited_nodes(child)
-              self.tree.create_relations(node, child, selected_action)
+            self.tree.update_visited_nodes(child)
+            self.tree.create_relations(node, child, selected_action)
 
-              simulation_path.append(child)  # Track nodes in the path
-              node = child  # Move to next state
+            simulation_path.append(child)  # Track nodes in the path
+            node = child  # Move to next state
 
+          reward = self.compute_reward(node)
+          print(f"reward: {reward}")
 
-          # Compute reward
-          food_heuristic = self.food_based_heuristic_reward(node)
-          weight_heuristic = self.get_weights_food_based_heuristic()
-          food_weighted = food_heuristic * weight_heuristic
-          reward = self.getScore(node) + food_weighted  
-
-          # Backpropagate along this simulation path
           self.reward_dict = self.tree.new_new_propagate(reward, self.reward_dict, simulation_path)
+          #print(f"self.reward_dict: {self.reward_dict}")
+          ##print(reward)
+          #self.reward_dict = self.tree.new_new_propagate(reward, self.reward_dict, simulation_path)
           simulation_rewards[f"simulation_{sim_idx+1}"] = {"path": simulation_path, "reward": reward, "action_path": action_path}
-          #simulation_rewards[f"simulation_{sim_idx+1}"] = {"path": simulation_path, "reward": reward}
 
-          #print(f"simulation_rewards after simulation {sim_idx+1}: ", simulation_rewards)
-
-
-          #root_reward = self.reward_dict.get(root, float('-inf'))  # Default to -inf if not found
-          #print(f"root_reward for simulation {sim_idx+1}: ", root_reward)
-
-
-          #print(f"root: {root}")
-          # Store reward for the root state of this simulation
           
       # Store reward dict for later
       max_reward = float('-inf')
@@ -215,12 +154,10 @@ class MCTSAgent(CaptureAgent):
             best_simulation = sim_data  # Get the path and actions for this simulation
 
       if best_simulation:
-          print(f"Best simulation: Path: {best_simulation['path']} | Reward: {best_simulation['reward']} | Action Path: {best_simulation['action_path']}")
-          best_action = best_simulation["action_path"][0]  # Take the first action in the best action path
-      else:
-          best_action = random.choice(root.getLegalActions(self.index))  # Fallback if no good simulation
 
-      print("best_action: ", best_action)
+          best_action = best_simulation["action_path"][0]  # Take the first action in the best action path
+
+      #print("best_action: ", best_action)
       prev_reward_dict = self.tree.reward_dict
 
       # Update the tree root 
@@ -232,7 +169,95 @@ class MCTSAgent(CaptureAgent):
       self.tree.reward_dict = prev_reward_dict
 
       return best_action
+  '''
 
+  def chooseAction(self, node):
+    """
+    Picks the best action using Monte Carlo simulations.
+    """
+    root = node
+    num_simulations = 5
+    length_of_one_sim_path = 5
+
+    simulation_rewards = {}
+    # Store cumulative rewards per action
+    action_rewards = defaultdict(list)
+    #actions = ['South', 'North', 'East', 'West', 'Stop']
+
+    for sim_idx in range(num_simulations):
+        print(f"Simulation {sim_idx}")
+        node = root  # Start from root in each simulation
+        simulation_path = []
+        action_path = []
+
+        # First action
+        selected_action = random.choice(node.getLegalActions(self.index)) 
+       
+        print(f"selected_action: {selected_action}") 
+        action_path.append(selected_action)
+        child = node.generateSuccessor(self.index, selected_action)
+
+        if child is None:
+            continue  # Skip this simulation if no valid successor
+
+        self.tree.update_visited_nodes(child)
+        self.tree.create_relations(node, child, selected_action)
+
+        simulation_path.append(child)
+        node = child
+
+        # Simulate the remaining steps
+        for i in range(length_of_one_sim_path - 1):  # -1 since action already taken
+            legal_actions = node.getLegalActions(self.index)
+            if not legal_actions:
+                break
+            
+            next_action = random.choice(legal_actions)
+            action_path.append(next_action)
+            child = node.generateSuccessor(self.index, next_action)
+
+            if child is None:
+                break
+
+            self.tree.update_visited_nodes(child)
+            self.tree.create_relations(node, child, next_action)
+
+            simulation_path.append(child)
+            node = child
+
+        reward = self.compute_reward(node)
+        simulation_rewards[f"simulation_{sim_idx+1}"] = {"path": simulation_path, "reward": reward, "action_path": action_path}
+
+        print(f"Simulation {sim_idx} | Action: {selected_action} | Reward: {reward}")
+
+        self.reward_dict = self.tree.new_new_propagate(reward, self.reward_dict, simulation_path)
+
+        # Store reward for the first action taken in this simulation
+        action_rewards[selected_action].append(reward)
+
+    max_reward = float('-inf')
+    for sim_idx, sim_data in simulation_rewards.items():
+      if sim_data["reward"] > max_reward:
+          max_reward = sim_data["reward"]
+          best_simulation = sim_data  # Get the path and actions for this simulation
+
+    if best_simulation:
+
+        best_action = best_simulation["action_path"][0]
+
+    # Monte Carlo estimation: Compute average reward per action
+    #avg_rewards = {action: sum(rewards) / len(rewards) for action, rewards in action_rewards.items()}
+
+    # Select action with highest average reward
+    #best_action = max(avg_rewards, key=avg_rewards.get)
+
+    print(f"Chosen Action: {best_action}")
+
+    # Move to the next state in the tree
+    self.tree.root = root.generateSuccessor(self.index, best_action)
+
+    return best_action
+  
 
 
 
@@ -249,38 +274,56 @@ class MCTSAgent(CaptureAgent):
       minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
       features['distanceToFood'] = minDistance
     return features
+
+
+
+  def get_weights(self):
+    return {'successorScore': 1, 'distanceToFood': -100, 'enemyDistance': -10}
+    #return {'successorScore': 100, 'distanceToFood': -200, 'numInvaders': -100, 'enemyDistance': -100}
+
+  
+  def enemy_based_heuristic_reward(self, successor):
+    features = util.Counter()
+    
+    myState = successor.getAgentState(self.index)
+    myPos = myState.getPosition()
+    if (myState.isPacman):
+       print("agent is a pacman")
+    else:
+       print('agent is a agent')
+    enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
+    invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
+    dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders] 
+    features['numInvaders'] = len(invaders)
+    if len(invaders) > 0 and myState.isPacman == False: 
+      features['enemyDistance'] = min(dists) * 1000
+    elif len(invaders) > 0 and myState.isPacman == True:
+      features['enemyDistance'] = min(dists) * -1000
+    elif len(invaders) <= 0 and myState.isPacman == True:
+       # if there is no invaders then go for the food
+       features['enemyDistance'] =   0
+    else: 
+      #dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
+      features['enemyDistance'] =  0# -1 * 1000
+
+    return features
   
 
-  def get_weights_food_based_heuristic(self):
-    return {'successorScore': 100, 'distanceToFood': -1}
-  
-
 
   
 
 
+'''
 
-## CURRENTLY NOT USED
+
+  def get_weights_enemy_based_heuristic(self, successor):
+    myState = successor.getAgentState(self.index)
+    myPos = myState.getPosition()
+    print("myPos: ", myPos)
+    if myPos[0] > 14: # if in home territory then run away from enemies 
+       return {'enemyDistance': -100}
+    else: 
+       # if in enemy territory then run towards enemies 
+       return {'enemyDistance': -100}
   
-  # def select(self, node):
-  #   #print("are we here?")
-  #   while not node.is_fully_expanded():
-  #     #print("select a node")
-  #     node = node.best_child()
-  #   return node
-  
-
-  # def simulate(self, node):
-  #     """
-  #     Simulate a random playthrough from the given node.
-  #     """
-  #     current_state = node.state
-  #     while not current_state.isGameOver():
-  #         legal_actions = current_state.getLegalActions(self.index)
-  #         action = random.choice(legal_actions)  # Randomly pick an action
-  #         current_state = current_state.generateSuccessor(self.index, action)
-  #     return self.evaluate_reward(current_state)
-
-
-  # def evaluate_reward(self, gameState):
-  #     return gameState.getScore()  # You can customize this depending on your agent's strategy
+'''
