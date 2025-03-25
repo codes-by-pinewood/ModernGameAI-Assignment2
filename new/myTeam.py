@@ -137,9 +137,10 @@ class MCTSAgent(CaptureAgent):
     # After ALL simulation are done, update the reward
     for i in range(len(simulation_paths)):
       leaf_of_simulation = simulation_paths[i][-1]
+      # parent = simulation_paths[i][-2]
         
       # Compute reward
-      reward = self.evaluate_state_reward(leaf_of_simulation) # self.getScore(leaf_of_simulation) + 
+      reward = self.evaluate_state_reward(leaf_of_simulation) + self.getScore(leaf_of_simulation)
       reward += reverse_penalties[i]
       print(f"reward {reward}")
       
@@ -240,6 +241,8 @@ class MCTSAgent(CaptureAgent):
       for action in actions:
           successor = gameState.generateSuccessor(self.index, action)
           score = self.evaluate_state_reward(successor)
+          print(f"Action {action}, Score {score}")
+
           if score > best_score:
               best_score = score
               best_action = action
@@ -255,68 +258,61 @@ class OffenseMCTSAgent(MCTSAgent):
   """
 
   def evaluate_state_reward(self, successor):
-    # print("Offense evaluate state reward")
-    features = self.food_based_heuristic_reward(successor)
-    # print("Features:", features)
+    features = self.offense_heuristic_reward(successor)
     weights = self.get_weights_offense()
-    # print("Weights:", weights)
     reward = features * weights
-    # print("Heuristic reward:", reward)
     return reward
 
-
-      
-  def food_based_heuristic_reward(self, successor):
-    # TODO check weights later
+  def offense_heuristic_reward(self, successor):
     features = util.Counter()
-    foodList = self.getFood(successor).asList()    
-    features['successorScore'] = -len(foodList) # the more food not in our belly => worse
-
-    # Compute distance to the nearest food
-    if len(foodList) > 0: # This should always be True, but better safe than sorry
-      myPos = successor.getAgentState(self.index).getPosition()
-      minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
-      features['distanceToFood'] = minDistance
-
-    # Only consider ghosts if we are on the opponent’s side (i.e., we are Pacman)
+    myPos = successor.getAgentState(self.index).getPosition()
     myState = successor.getAgentState(self.index)
+
+    foodList = self.getFood(successor).asList()
+    capsules = self.getCapsules(successor)
+
+    # How much food we ate?
+    prev_food = self.getFood(self.tree.root).asList()
+    features['foodEaten'] = len(prev_food) - len(foodList)
+
+    # The closer to the nearest food => the better 
+    if foodList:
+        features['distanceToFood'] = min([self.getMazeDistance(myPos, food) for food in foodList])
+
+    # # The closer to the nearest capsule => the better 
+    # if capsules:
+    #     features['distanceToCapsule'] = min([self.getMazeDistance(myPos, cap) for cap in capsules])
+
+    # Ghosts should be avoided
+    danger_zone = 4 
     if myState.isPacman:
         ghosts = [successor.getAgentState(i) for i in self.getOpponents(successor)]
-        visibleGhosts = [g for g in ghosts if not g.isPacman and g.getPosition() is not None]
+        visibleGhosts = [g for g in ghosts if not g.isPacman and g.getPosition() is not None and g.scaredTimer == 0]
         if visibleGhosts:
-            myPos = myState.getPosition()
-            ghostDistances = [self.getMazeDistance(myPos, g.getPosition()) for g in visibleGhosts]
-            minGhostDist = min(ghostDistances)
-            features['distanceToGhost'] = minGhostDist  # Larger = safer
+            closestGhost = min([self.getMazeDistance(myPos, g.getPosition()) for g in visibleGhosts])
+            features['ghostDanger'] = max(0, danger_zone - closestGhost)
 
-    # Only consider the distance to boundary if we are on our side (i.e., we are ghost)
-    else:
-      # Feature - distance to boundary. While offense ghost, the closer it is to the boundary, the better
-      mid_x = successor.getWalls().width // 2
-      if self.red:
-          mid_x = mid_x - 1  
-      else:
-          mid_x = mid_x  
-      
-      boundary_y = [y for y in range(successor.getWalls().height) 
-                  if not successor.hasWall(mid_x, y)]
-      
-      # Calculate distances to boundary positions
-      boundary_distances = [self.getMazeDistance(myState.getPosition(), (mid_x, y)) 
-                          for y in boundary_y]
-      # Distance to closest boundary point
-      distance_to_boundary = min(boundary_distances) if boundary_distances else 0
 
-      features['distance_to_boundary'] = distance_to_boundary
+    # If pacman has more than 5 foods => come home to check it in
+    carried = myState.numCarrying
+    if carried > 2:
+        mid_x = successor.getWalls().width // 2
+        if self.red:
+            mid_x = mid_x - 1
+        else:
+            mid_x = mid_x
+
+        boundary_y = [y for y in range(successor.getWalls().height)
+                      if not successor.hasWall(mid_x, y)]
+        returnDistances = [self.getMazeDistance(myPos, (mid_x, y)) for y in boundary_y]
+        features['distanceToHome'] = min(returnDistances) if returnDistances else 0
+        features['carrying'] = carried
+
     return features
   
-
   def get_weights_offense(self):
-    '''
-    heuristic based on offensive strategy: getting more food. 
-    '''
-    return {'successorScore': 100, 'distanceToFood': -1, 'distanceToGhost': 10, 'distance_to_boundary': -1000}
-
+    # return {'foodEaten': 100, 'closestGhostDist': 10, 'escape': -500}
+    return {'foodEaten': 1000, 'distanceToFood': -20, 'ghostDanger': -500, 'carrying': 100, 'distanceToHome': -2}
 
 
 class DefenseMCTSAgent(MCTSAgent):
@@ -331,22 +327,61 @@ class DefenseMCTSAgent(MCTSAgent):
     reward = features * weights
     return reward
     
-
   def enemy_based_heuristic_reward(self, successor):
+    """
+    Logic: 
+    1. Are there visible invaders? If yes, approach the closest of them
+    2. If there are none, come as close to the one that have not crossed the boarder yet. The moment it crosses, follow
+    """
     features = util.Counter()
     enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
     invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
+
+    # there are visible invaders
     if len(invaders) > 0: # This should always be True, but better safe than sorry
       myPos = successor.getAgentState(self.index).getPosition()
-      minDistance = min([self.getMazeDistance(myPos, enemy.getPosition) for enemy in invaders])
+      minDistance = min([self.getMazeDistance(myPos, enemy.getPosition()) for enemy in invaders])
       features['distanceToInvader'] = minDistance
+
+    # no visible invaders => approach the boarder
+    else:
+      myPos = successor.getAgentState(self.index).getPosition()
+      mid_x = successor.getWalls().width // 2
+      if self.red:
+          mid_x = mid_x - 1  
+      else:
+          mid_x = mid_x 
+
+      boundary_y = [y for y in range(successor.getWalls().height)
+                    if not successor.hasWall(mid_x, y)]
+      
+      # Calculate distances to boundary positions
+      boundary_distances = [self.getMazeDistance(myPos, (mid_x, y)) 
+                            for y in boundary_y]
+      # Distance to closest boundary point
+      features['distance_to_boundary'] = min(boundary_distances) if boundary_distances else 0
+
+    
+    # To motivate ghosts to eat the pacmans!!
+    previousState = self.tree.root 
+    previousInvaders = [a for a in self.getOpponents(previousState) 
+                        if previousState.getAgentState(a).isPacman and previousState.getAgentState(a).getPosition() is not None]
+    previousCount = len(previousInvaders)
+
+    currentInvaders = [a for a in self.getOpponents(successor) 
+                      if successor.getAgentState(a).isPacman and successor.getAgentState(a).getPosition() is not None]
+    currentCount = len(currentInvaders)
+
+    features['invaderEaten'] = previousCount - currentCount
+
     return features
+  
 
   def get_weights_defense(self):
     '''
     get the distance to invader. 
     '''
-    return {'distanceToInvader': -1}
+    return {'distanceToInvader': -100, 'distance_to_boundary': -50, 'invaderEaten': 1000}
 
   
 
