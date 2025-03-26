@@ -28,12 +28,6 @@ def createTeam(firstIndex, secondIndex, isRed,
   any extra arguments, so you should make sure that the default
   behavior is what you want for the nightly contest.
   """
-  #print("firstIndex: ", firstIndex)
-  #print("secondIndex: ", secondIndex)
-  #print("eval(first)(firstIndex): ", eval(first)(firstIndex))
-  #print("eval(second)(secondIndex): ", eval(second)(secondIndex))
-
-  # The following line is an example only; feel free to change it.
   return [eval(first)(firstIndex), eval(second)(secondIndex)]
 
 
@@ -102,74 +96,6 @@ class MCTSAgent(CaptureAgent):
     reward = sum(features[k] * weights[k] for k in features if k in weights)
     return reward
 
-  '''
-  def chooseAction(self, node):
-      """
-      Picks among actions randomly.
-      """
-      root = node
-      #print("root at start of the chooseAction function: ", root)
-      num_simulations = 5
-      length_of_one_sim_path = 5
-      simulation_rewards = {}  # Store rewards for root state of each simulation
-
-      for sim_idx in range(num_simulations):
-          print(f"Simulation {sim_idx}")
-          node = root  # Start each simulation from the original root
-          simulation_path = []
-          action_path = []
-          visited_states = set()
-          visited_states.add(node)
-          simulation_path.append(node)
-
-          for i in range(length_of_one_sim_path):
-            selected_action = random.choice(node.getLegalActions(self.index))
-            action_path.append(selected_action)
-            child = node.generateSuccessor(self.index, selected_action)
-
-            if child is None:
-                break
-
-            self.tree.update_visited_nodes(child)
-            self.tree.create_relations(node, child, selected_action)
-
-            simulation_path.append(child)  # Track nodes in the path
-            node = child  # Move to next state
-
-          reward = self.compute_reward(node)
-          print(f"reward: {reward}")
-
-          self.reward_dict = self.tree.new_new_propagate(reward, self.reward_dict, simulation_path)
-          #print(f"self.reward_dict: {self.reward_dict}")
-          ##print(reward)
-          #self.reward_dict = self.tree.new_new_propagate(reward, self.reward_dict, simulation_path)
-          simulation_rewards[f"simulation_{sim_idx+1}"] = {"path": simulation_path, "reward": reward, "action_path": action_path}
-
-          
-      # Store reward dict for later
-      max_reward = float('-inf')
-      for sim_idx, sim_data in simulation_rewards.items():
-        if sim_data["reward"] > max_reward:
-            max_reward = sim_data["reward"]
-            best_simulation = sim_data  # Get the path and actions for this simulation
-
-      if best_simulation:
-
-          best_action = best_simulation["action_path"][0]  # Take the first action in the best action path
-
-      #print("best_action: ", best_action)
-      prev_reward_dict = self.tree.reward_dict
-
-      # Update the tree root 
-      child_node = root.generateSuccessor(self.index, best_action)
-
-      prev_reward_dict = self.tree.reward_dict
- 
-      self.tree.root = child_node
-      self.tree.reward_dict = prev_reward_dict
-
-      return best_action
-  '''
 
   def chooseAction(self, node):
     """
@@ -291,6 +217,7 @@ class MCTSAgent(CaptureAgent):
        print("agent is a pacman")
     else:
        print('agent is a agent')
+
     enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
     invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
     dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders] 
