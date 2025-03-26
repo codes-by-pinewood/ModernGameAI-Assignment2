@@ -412,11 +412,13 @@ class CaptureRules:
           print('The Red team has returned at least %d of the opponents\' dots.' % foodToWin)
         else:#if state.getBlueFood().count() > MIN_FOOD and state.getRedFood().count() > MIN_FOOD:
           print('Time is up.')
-          if state.data.score == 0: print('Tie game!')
+          if state.data.score == 0: 
+            print('Tie game!')
           else:
             winner = 'Red'
             if state.data.score < 0: winner = 'Blue'
             print('The %s team wins by %d points.' % (winner, abs(state.data.score)))
+
 
   def getProgress(self, game):
     blue = 1.0 - (game.state.getBlueFood().count() / float(self._initBlueFood))
@@ -1021,7 +1023,8 @@ def runGames( layouts, agents, display, length, numGames, record, numTraining, r
   return games
 
 def save_score(game):
-    with open('score', 'w') as f:
+    
+    with open('score', 'a') as f:
         print(game.state.data.score,file=f)
 
 if __name__ == '__main__':

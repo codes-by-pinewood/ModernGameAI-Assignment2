@@ -9,6 +9,7 @@ class Tree:
     def __init__(self, root=None, action=None):
         self.relations = {}
         self.root = root
+        self.visit_count = {}
         self.visited_nodes = []
         self.visited_nodes_in_sim_dict = {}
         self.reward_dict = {}
@@ -152,7 +153,7 @@ class Tree:
 
 
         #print(f"reward dict after", self.reward_dict)
-
+    
     def new_new_propagate(self, reward, reward_dict, simulation_path):
         """
         Backpropagate reward along a specific simulation path.
@@ -164,13 +165,16 @@ class Tree:
 
         Returns:
             dict: Updated reward dictionary.
+
         """
-        num_states = len(simulation_path)
+        
+        #print(f"reward before: {reward}")
+        num_states = len(simulation_path) - 1
         print(num_states)
         if num_states == 0:
             return reward_dict  # No nodes to update
 
-        decay_factor = 0.9  # Controls how much the reward decreases as it moves up the path
+        decay_factor = 0.1  # Controls how much the reward decreases as it moves up the path
 
         # Process root separately to ensure it's correctly updated
         root_node = simulation_path[0]
@@ -182,27 +186,29 @@ class Tree:
         for i, node in enumerate(reversed(simulation_path[1:])):  # Exclude root
             if node not in reward_dict:
                 reward_dict[node] = 0
+            if node not in self.visit_count:
+                self.visit_count[node] = 0
+
+            self.visit_count[node] += 1 
 
             initial_reward = reward_dict[node]
-            discounted_reward = reward * (decay_factor ** (i + 1))  # Start decay from 1
+            visit_count = self.visit_count[node]
+            new_reward = (initial_reward + reward)/visit_count
+            #discounted_reward *= discount_factor
+            discounted_reward = reward * decay_factor  # Start decay from 1
             reward_dict[node] += (1 / num_states) * (discounted_reward - initial_reward)
-
-        #print(f"root node: {root_node}")
-        #print(f"root node reward dict: {reward_dict[root_node]}")
+            print(f"reward after: {reward_dict[node]}")
         return reward_dict
+
+
+    
 
 
    
     def new_propagate(self, reward, reward_dict):
 
-        #print(f"reward dict before", reward_dict)
         num_states = len(self.visited_nodes)
-        #print(f"num_states: {num_states}")
         for node in self.visited_nodes:
-            
-        
-            #print("type of reward dict keys", type(self.reward_dict.keys()))
-            
             if node not in reward_dict.keys():
                 #print("are we getting stuck here?")
                 reward_dict[node] = 0
@@ -210,9 +216,6 @@ class Tree:
             initial_reward = reward_dict[node]
             
             reward_dict[node] += (1 / num_states) * (reward - initial_reward) 
-
-
-        #print(f"reward dict after", reward_dict)
 
         return reward_dict
 
@@ -244,59 +247,3 @@ class Tree:
             return 0 if explore == 0 else -1
         else:
             return avg_reward / self.times_visited[node] + explore * math.sqrt(2 * math.log(self.times_visited[parent]) / self.times_visited[node])
-
-
-# TODO: reward dict is emptied every root switch BAD fix it, avg_reward = self.reward_dict[node]
-
-# CUURENTLY NOT USED
-
-    # def select(self):
-    #     print(f"self.legal_actions : {self.legal_actions}")
-    #     self.random.choice(self.legal_actions)
-        
-    # def get_random_child(self, node):
-    #     print(f"self.relations[node]: {self.relations[node]}")
-    #     return random.choice([self.relations[node]])
-    
-    # def add_child(self, child_node):
-    #     self.children.append(child_node)
-    #     print("updating children")
-    #     print(f"self.children: {self.children}")
-
-    # def best_child(self):
-    #     # Use UCT formula to select the best child (maximize reward and visits)
-    #     best_value = float('-inf')
-    #     best_node = None
-    #     for child in self.children:
-    #         uct_value = child.reward / (child.visits + 1) + 2 * (2 * math.log(self.visits + 1) / (child.visits + 1))**0.5
-    #         if uct_value > best_value:
-    #             best_value = uct_value
-    #             best_node = child
-    #     return best_node
-
-    # def update(self, reward):
-    #     # Update the node's statistics after a simulation
-    #     self.visits += 1
-    #     self.reward += reward
-
-    # def is_terminal(self):
-    #     return True
-        # Check if the node is terminal (game over or no more legal actions)
-        #print("self.state: " + str(self.state))
-        #print(f"self.gameState: {self.state}")
-        #print(f"self.game.gameOver: {self.game.gameOver}")
-        #return self.game.gameOver
-
-    # def is_fully_expanded(self, node):
-    #     return (len(self.untried_actions_dict.get(node, [])) == 0)
-
-
-    # def has_child(self, action):
-    #     return any(child.action == action for child in self.children)
-
-        # self.update_tried_actions_reward_dict()
-
-    # def update_tried_actions_reward_dict(self):
-    #     roots_children = self.relations[self.root].items()
-
-
