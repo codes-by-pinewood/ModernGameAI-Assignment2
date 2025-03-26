@@ -83,8 +83,8 @@ class MCTSAgent(CaptureAgent):
     self.visited_gamestates.append(root)
 
     # Choose number of simulations and their length
-    num_simulations = 50
-    length_of_one_sim_path = 4
+    num_simulations = 30
+    length_of_one_sim_path = 5
 
     # For each simulation, dict: key-simulation path, value-reward; list: all simulations' paths; reverse penalty score for each simulation
     simulation_rewards = {} 
@@ -106,12 +106,12 @@ class MCTSAgent(CaptureAgent):
         for _ in range(length_of_one_sim_path):
             # Step
             # selected_action = self.select_uct_action(node)
-            selected_action = self.heuristic_action(node, epsilon=0.1)
+            selected_action = self.heuristic_action(node, epsilon=0.2)
             child = node.generateSuccessor(self.index, selected_action)
 
             # Penalize reverse moves
             if prev_action == Directions.REVERSE[selected_action]:
-                reverse_penalty -= 50
+                reverse_penalty -= 5000
 
             # Update
             self.tree.update_visited_nodes(child)
@@ -132,21 +132,21 @@ class MCTSAgent(CaptureAgent):
         # After the end of a simulation, append the whole path and reverse penalties
         simulation_paths.append(simulation_path)
         reverse_penalties.append(reverse_penalty)
-        # print(f"Reverse penalty {reverse_penalties}")
+        print(f"Reverse penalty {reverse_penalties}")
 
 
     # After ALL simulation are done, update the reward
     for i in range(len(simulation_paths)):
-      print(f"Reverse penalty {reverse_penalties[i]}")
       leaf_of_simulation = simulation_paths[i][-1]
       # parent = simulation_paths[i][-2]
         
       # Compute reward
       reward = self.evaluate_state_reward(leaf_of_simulation)# + self.getScore(leaf_of_simulation)
       reward += reverse_penalties[i]
+      print(f"reward {reward}")
       
       # Backpropagate along this simulation path
-      # self.tree.correct_backprop(leaf_of_simulation, reward, self.global_reward_dict)
+      self.tree.correct_backprop(leaf_of_simulation, reward, self.global_reward_dict)
       simulation_rewards[f"simulation_{sim_idx+1}"] = {"path": simulation_paths[i], "reward": reward, "action_path": action_path}
 
     # BEFORE
@@ -232,16 +232,6 @@ class MCTSAgent(CaptureAgent):
 
   #     return best_action if best_action is not None else random.choice(node.getLegalActions(self.index))
 
-  def deadend_no_food(self, successor, action):
-    actions = [a for a in successor.getLegalActions(self.index) if a != Directions.STOP]
-    if len(actions) == 1 and actions[0] == Directions.REVERSE[action]:
-      myPos = successor.getAgentState(self.index).getPosition()
-      if self.getFood(successor)[int(myPos[0])][int(myPos[1])] == 'False':
-        print("DEADEND")
-        return 1
-    return 0
-
-
   def heuristic_action(self, gameState, epsilon):
       actions = gameState.getLegalActions(self.index)
       actions = [a for a in actions if a != Directions.STOP]
@@ -254,9 +244,8 @@ class MCTSAgent(CaptureAgent):
 
       for action in actions:
           successor = gameState.generateSuccessor(self.index, action)
-          print(f"IS DEADEND? {self.deadend_no_food(successor, action)}")
-          score = self.evaluate_state_reward(successor) + self.deadend_no_food(successor, action) * (-500)
-          # print(f"Action {action}, Score {score}")
+          score = self.evaluate_state_reward(successor)
+          print(f"Action {action}, Score {score}")
 
           if score > best_score:
               best_score = score
@@ -276,7 +265,6 @@ class OffenseMCTSAgent(MCTSAgent):
     features = self.offense_heuristic_reward(successor)
     weights = self.get_weights_offense()
     reward = features * weights
-    # print(f"OFFENSE REWARD {reward}")
     return reward
 
   def offense_heuristic_reward(self, successor):
@@ -306,15 +294,12 @@ class OffenseMCTSAgent(MCTSAgent):
         visibleGhosts = [g for g in ghosts if not g.isPacman and g.getPosition() is not None and g.scaredTimer == 0]
         if visibleGhosts:
             closestGhost = min([self.getMazeDistance(myPos, g.getPosition()) for g in visibleGhosts])
-            features['ghostDanger'] = max(0, danger_zone - closestGhost)**2
-        else:
-            features['ghostDanger'] = 0
-    
+            features['ghostDanger'] = max(0, danger_zone - closestGhost)
 
 
     # If pacman has more than 5 foods => come home to check it in
     carried = myState.numCarrying
-    if carried >= 2:
+    if carried > 2:
         mid_x = successor.getWalls().width // 2
         if self.red:
             mid_x = mid_x - 1
@@ -325,18 +310,14 @@ class OffenseMCTSAgent(MCTSAgent):
                       if not successor.hasWall(mid_x, y)]
         returnDistances = [self.getMazeDistance(myPos, (mid_x, y)) for y in boundary_y]
         features['distanceToHome'] = min(returnDistances) if returnDistances else 0
-    else:
-       features['distanceToHome'] = 0
-    features['carrying'] = carried
-
-    print(f"FEATURES: {features}")
+        features['carrying'] = carried
 
     return features
   
   def get_weights_offense(self):
     # return {'foodEaten': 100, 'closestGhostDist': 10, 'escape': -500}
-    return {'foodEaten': 20, 'distanceToFood': -2, 'ghostDanger': -7, 'carrying': 40, 'distanceToHome': -12}
-    # return {'foodEaten': 20, 'distanceToFood': -2, 'ghostDanger': -40, 'carrying': 30, 'distanceToHome': -20}, no exp ghostDanger
+    return {'foodEaten': 100, 'distanceToFood': -20, 'ghostDanger': -800, 'carrying': 0, 'distanceToHome': -2}
+    # return {'foodEaten': 1000, 'distanceToFood': -20, 'ghostDanger': -500, 'carrying': 100, 'distanceToHome': -2}
 
 
 
