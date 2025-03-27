@@ -21,7 +21,7 @@ def update_elo(rating_a, rating_b, score_a, k=32):
     return rating_a_new, rating_b_new
 
 
-def run_capture(red='myVanillaMCTS', blue='baselineTeam', num_games=2, quiet=True):
+def run_capture(red='baselineTeam', blue='baselineTeam', num_games=2, quiet=True):
     args = ['--red', red, '--blue', blue, '-n', str(num_games)]
     if quiet:
         args.append('-q')
@@ -34,6 +34,7 @@ def save_score(i, game, red, blue):
 
 
 if __name__ == '__main__':
+
     # Run Vanilla MCTS vs Baseline Team
     red = 'myVanillaMCTS'
     blue = 'baselineTeam'
@@ -41,9 +42,7 @@ if __name__ == '__main__':
 
     for i, game in enumerate(games):
         save_score(i, game, red, blue)
-
-    for i, g in enumerate(games):
-        print(f"Game {i+1}: Final Score = {g.state.data.score}")
+        print(f"Game {i+1}: Final Score = {game.state.data.score}")
 
 
     # After running all the games do ELO
