@@ -105,7 +105,6 @@ class MCTSAgent(CaptureAgent):
 
         for _ in range(length_of_one_sim_path):
             # Step
-            # selected_action = self.select_uct_action(node)
             selected_action = self.heuristic_action(node, epsilon=0.1)
             child = node.generateSuccessor(self.index, selected_action)
 
@@ -146,23 +145,8 @@ class MCTSAgent(CaptureAgent):
       reward += reverse_penalties[i]
       
       # Backpropagate along this simulation path
-      # self.tree.correct_backprop(leaf_of_simulation, reward, self.global_reward_dict)
       simulation_rewards[f"simulation_{sim_idx+1}"] = {"path": simulation_paths[i], "reward": reward, "action_path": action_path}
 
-    # BEFORE
-    # this chooses the first action of the simulation that resulted in the higest reward. that could be random
-    # # Store reward dict for later
-    # max_reward = float('-inf')
-    # for sim_idx, sim_data in simulation_rewards.items():
-    #   if sim_data["reward"] > max_reward:
-    #       max_reward = sim_data["reward"]
-    #       best_simulation = sim_data  
-
-    # # if best_simulation:
-    # print(f"Best simulation: Path: {best_simulation['path']} | Reward: {best_simulation['reward']} | Action Path: {best_simulation['action_path']}")
-    # best_action = best_simulation["action_path"][0]  # Take the first action in the best action path
-
-    # AFTER
     # instead, we want to track the best total reward per first action, then pick the action with the best average (or max) performance.
 
     # Group rewards by first action
@@ -192,45 +176,9 @@ class MCTSAgent(CaptureAgent):
 
     # Add the child to already visited gamestates
     self.visited_gamestates.append(child_node)
-
     return best_action
   
 
-  # def select_uct_action(self, node, explore=2.0):
-  #     """
-  #     Select the best action from this node using UCT.
-
-  #     Args:
-  #         node: The current gameState node.
-  #         explore: Exploration constant. Higher values favor less visited nodes.
-
-  #     Returns:
-  #         action (Direction): The best action based on UCT value.
-  #     """
-  #     if node not in self.tree.relations:
-  #         legal_actions = [a for a in node.getLegalActions(self.index) if a != Directions.STOP]
-  #         return random.choice(legal_actions)  
-
-  #     best_score = float('-inf')
-  #     best_action = None
-
-  #     parent_visits = self.tree.times_visited.get(node, 1)
-
-  #     for child, action in self.tree.relations[node]:
-  #         child_visits = self.tree.times_visited.get(child, 0)
-  #         total_reward = self.global_reward_dict.get(child, 0)
-
-  #         if child_visits == 0:
-  #             return action  # Try unvisited node immediately
-
-  #         avg_reward = total_reward / child_visits
-  #         uct_score = avg_reward + explore * math.sqrt(math.log(parent_visits) / child_visits)
-
-  #         if uct_score > best_score:
-  #             best_score = uct_score
-  #             best_action = action
-
-  #     return best_action if best_action is not None else random.choice(node.getLegalActions(self.index))
 
   def deadend_no_food(self, successor, action):
     actions = [a for a in successor.getLegalActions(self.index) if a != Directions.STOP]
@@ -276,7 +224,7 @@ class OffenseMCTSAgent(MCTSAgent):
     features = self.offense_heuristic_reward(successor)
     weights = self.get_weights_offense()
     reward = features * weights
-    # print(f"OFFENSE REWARD {reward}")
+    print(f"OFFENSE REWARD {reward}")
     return reward
 
   def offense_heuristic_reward(self, successor):
