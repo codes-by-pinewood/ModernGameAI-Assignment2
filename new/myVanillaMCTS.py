@@ -10,25 +10,35 @@ import math
 # Team creation #
 #################
 
+# def createTeam(firstIndex, secondIndex, isRed,
+#                first = 'OffenseVanillaMCTSAgent', second = 'DefenseVanillaMCTSAgent'):
+#   """
+#   This function should return a list of two agents that will form the
+#   team, initialized using firstIndex and secondIndex as their agent
+#   index numbers.  isRed is True if the red team is being created, and
+#   will be False if the blue team is being created.
+
+#   As a potentially helpful development aid, this function can take
+#   additional string-valued keyword arguments ("first" and "second" are
+#   such arguments in the case of this function), which will come from
+#   the --redOpts and --blueOpts command-line arguments to capture.py.
+#   For the nightly contest, however, your team will be created without
+#   any extra arguments, so you should make sure that the default
+#   behavior is what you want for the nightly contest.
+#   """
+#   # The following line is an example only; feel free to change it.
+#   return [eval(first)(firstIndex), eval(second)(secondIndex)]
 def createTeam(firstIndex, secondIndex, isRed,
-               first = 'OffenseVanillaMCTSAgent', second = 'DefenseVanillaMCTSAgent'):
-  """
-  This function should return a list of two agents that will form the
-  team, initialized using firstIndex and secondIndex as their agent
-  index numbers.  isRed is True if the red team is being created, and
-  will be False if the blue team is being created.
+               first='OffenseVanillaMCTSAgent', second='DefenseVanillaMCTSAgent', **kwargs):
+  agents = [eval(first)(firstIndex), eval(second)(secondIndex)]
+  
+  # Save all string-valued opts into each agent's __dict__
+  for agent in agents:
+      for key, val in kwargs.items():
+          if isinstance(val, str) and key not in ['first', 'second']:
+              setattr(agent, key, val)
 
-  As a potentially helpful development aid, this function can take
-  additional string-valued keyword arguments ("first" and "second" are
-  such arguments in the case of this function), which will come from
-  the --redOpts and --blueOpts command-line arguments to capture.py.
-  For the nightly contest, however, your team will be created without
-  any extra arguments, so you should make sure that the default
-  behavior is what you want for the nightly contest.
-  """
-  # The following line is an example only; feel free to change it.
-  return [eval(first)(firstIndex), eval(second)(secondIndex)]
-
+  return agents
 
 ##########
 # Agents #
@@ -38,20 +48,8 @@ class myVanillaMCTSAgent(CaptureAgent):
   def __init__(self, index):
       super().__init__(index)
       self.root = None
-      self.global_reward_dict = {}
-      self.initialize_global_reward_dict()
-
-
-  def initialize_global_reward_dict(self):
-    """
-    Sets the reward of the root state to 0.
-    """
-    if self.root not in self.global_reward_dict:  
-      self.global_reward_dict[self.root] = 0
-  
-
-  # def update_global_reward_dict(self, node, reward):
-  #   self.global_reward_dict[node] = reward
+      self.length_of_one_sim_path = 4
+      self.num_simulations = 7
 
 
   def registerInitialState(self, gameState):
@@ -66,25 +64,26 @@ class myVanillaMCTSAgent(CaptureAgent):
 
     IMPORTANT: This method may run for at most 15 seconds.
     """
+    CaptureAgent.registerInitialState(self, gameState)
+
     self.tree = Tree(root = gameState)
     self.visited_gamestates = []
 
+    if hasattr(self, 'length'):
+        self.length_of_one_sim_path = int(self.length)
+    if hasattr(self, 'num_simulations'):
+        self.num_simulations = int(self.num_simulations)
     '''
     Make sure you do not delete the following line. If you would like to
     use Manhattan distances instead of maze distances in order to save
     on initialization time, please take a look at
     CaptureAgent.registerInitialState in captureAgents.py.
     '''
-    CaptureAgent.registerInitialState(self, gameState)
     
   def chooseAction(self, node):
     # Set the root of the tree, add it to visited game states
     root = node
     self.visited_gamestates.append(root)
-
-    # Choose number of simulations and their length
-    num_simulations = 50
-    length_of_one_sim_path = 4
 
     # For each simulation, dict: key-simulation path, value-reward; list: all simulations' paths; reverse penalty score for each simulation
     simulation_rewards = {} 
@@ -92,7 +91,7 @@ class myVanillaMCTSAgent(CaptureAgent):
     reverse_penalties = []
 
 
-    for sim_idx in range(num_simulations):
+    for sim_idx in range(self.num_simulations):
         # Start each simulation from the original root
         node = root  
           
@@ -103,7 +102,7 @@ class myVanillaMCTSAgent(CaptureAgent):
         prev_action = None
         reverse_penalty = 0
 
-        for _ in range(length_of_one_sim_path):
+        for _ in range(self.length_of_one_sim_path):
             # Step
             actions = [a for a in node.getLegalActions(self.index) if a != Directions.STOP]
             selected_action = random.choice(actions)
@@ -124,10 +123,6 @@ class myVanillaMCTSAgent(CaptureAgent):
             # Move to next state
             node = child  
             prev_action = selected_action
-
-            # Ensure the visited state is in the reward dict
-            if node not in self.global_reward_dict:
-               self.global_reward_dict[node] = 0
             
         # After the end of a simulation, append the whole path and reverse penalties
         simulation_paths.append(simulation_path)
@@ -146,7 +141,6 @@ class myVanillaMCTSAgent(CaptureAgent):
       reward += reverse_penalties[i]
       
       # Backpropagate along this simulation path
-      # self.tree.correct_backprop(leaf_of_simulation, reward, self.global_reward_dict)
       simulation_rewards[f"simulation_{sim_idx+1}"] = {"path": simulation_paths[i], "reward": reward, "action_path": action_path}
 
     # instead, we want to track the best total reward per first action, then pick the action with the best average (or max) performance.
