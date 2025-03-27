@@ -644,7 +644,7 @@ class Game:
 
             # Solicit an action
             action = None
-            time.sleep(0.2)
+            # time.sleep(0.2)
             self.mute(agentIndex)
             if self.catchExceptions:
                 try:
