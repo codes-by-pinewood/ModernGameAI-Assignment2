@@ -125,17 +125,19 @@ class HeuristicAgent(CaptureAgent):
 
     isPowered = myState.scaredTimer > 0
     enemy_score = self.get_enemy_score(isPowered, ghost_positions)
-    carrying_food = myState.numCarrying > 0
+    carrying_food = gameState.getAgentState(self.index).numCarrying > 0
 
+    danger_zone = 6
+    ghosts = [successor.getAgentState(i) for i in self.getOpponents(successor)]
+    visibleGhosts = [g for g in ghosts if not g.isPacman and g.getPosition() is not None and g.scaredTimer == 0]
+    if visibleGhosts:
+        closestGhost = min([self.getMazeDistance(myPos, g.getPosition()) for g in visibleGhosts])
+        # features['ghostDanger'] = max(0, danger_zone - closestGhost)**2
 
-    current_is_pacman = gameState.getAgentState(self.index).isPacman
-    successor_is_pacman = myState.isPacman
-    crossing_home = current_is_pacman and not successor_is_pacman
-
-    if successor_is_pacman:
+    if carrying_food and closestGhost<=danger_zone:
         mid_x = gameState.getWalls().width // 2
         if self.red:
-            mid_x = mid_x - 1  
+            mid_x = mid_x - 2 
         else:
             mid_x = mid_x  
         
@@ -147,27 +149,15 @@ class HeuristicAgent(CaptureAgent):
                             for y in boundary_y]
         # Distance to closest boundary point
         distance_to_boundary = min(boundary_distances) if boundary_distances else 0
-    else:
-        distance_to_boundary = 0
-
-    if carrying_food:
-        # HUGE reward for actually crossing the boundary
-        if crossing_home:
-            return -5000 
-        
-        # Check if opponents are close and we should return
-        dangerous_ghost_nearby = any(dist < 10 and not scared 
-                                 for _, dist, scared in ghost_positions)
-        
-        if dangerous_ghost_nearby or myState.numCarrying > 3:  # Lowered threshold to return sooner
-            # Strongly prioritize returning to our side
-            score = -distance_to_boundary * 10  # Increased weight
-            
-            # If close to our side, make it even more appealing
-            if distance_to_boundary <= 2:
-                score -= 500  # Much higher reward for being very close to boundary
+        if not myState.isPacman:
+           cross_boundry_reward = -100
+        else:
+           cross_boundry_reward = 0
+        # print(f'Closest to boundry:{distance_to_boundary} and cross_boundry: {cross_boundry_reward}')
+        return distance_to_boundary + cross_boundry_reward
 
     reward = food_reward + capsule_reward + enemy_score + score
+    # print(f'This is the reward when not carrying:{reward}')
     return reward
   
 
