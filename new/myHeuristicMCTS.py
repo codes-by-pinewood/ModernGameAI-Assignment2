@@ -11,7 +11,7 @@ import math
 #################
 
 def createTeam(firstIndex, secondIndex, isRed,
-               first = 'OffenseMCTSAgent', second = 'DefenseMCTSAgent'):
+               first = 'OffenseHeuristicMCTSAgent', second = 'DefenseHeuristicMCTSAgent'):
   """
   This function should return a list of two agents that will form the
   team, initialized using firstIndex and secondIndex as their agent
@@ -34,7 +34,7 @@ def createTeam(firstIndex, secondIndex, isRed,
 # Agents #
 #########
 
-class MCTSAgent(CaptureAgent):
+class myHeuristicMCTSAgent(CaptureAgent):
   def __init__(self, index):
       super().__init__(index)
       self.root = None
@@ -136,7 +136,7 @@ class MCTSAgent(CaptureAgent):
 
     # After ALL simulation are done, update the reward
     for i in range(len(simulation_paths)):
-      print(f"Reverse penalty {reverse_penalties[i]}")
+      # print(f"Reverse penalty {reverse_penalties[i]}")
       leaf_of_simulation = simulation_paths[i][-1]
       # parent = simulation_paths[i][-2]
         
@@ -167,7 +167,8 @@ class MCTSAgent(CaptureAgent):
         for action, rewards in action_to_rewards.items()
     }
     best_action = max(action_avg_rewards.items(), key=lambda x: x[1])[0]
-    print("best_action: ", best_action)
+    # print("best_action: ", best_action)
+    # print("best action's reward: ", action_avg_rewards[best_action])
 
     # Update the tree root 
     child_node = root.generateSuccessor(self.index, best_action)    
@@ -185,7 +186,7 @@ class MCTSAgent(CaptureAgent):
     if len(actions) == 1 and actions[0] == Directions.REVERSE[action]:
       myPos = successor.getAgentState(self.index).getPosition()
       if self.getFood(successor)[int(myPos[0])][int(myPos[1])] == 'False':
-        print("DEADEND")
+        # print("DEADEND")
         return 1
     return 0
 
@@ -202,7 +203,7 @@ class MCTSAgent(CaptureAgent):
 
       for action in actions:
           successor = gameState.generateSuccessor(self.index, action)
-          print(f"IS DEADEND? {self.deadend_no_food(successor, action)}")
+          # print(f"IS DEADEND? {self.deadend_no_food(successor, action)}")
           score = self.evaluate_state_reward(successor) + self.deadend_no_food(successor, action) * (-500)
           # print(f"Action {action}, Score {score}")
 
@@ -215,7 +216,7 @@ class MCTSAgent(CaptureAgent):
 
 
   
-class OffenseMCTSAgent(MCTSAgent):
+class OffenseHeuristicMCTSAgent(myHeuristicMCTSAgent):
   """
   An MCTS agent that seeks food.
   """
@@ -224,7 +225,7 @@ class OffenseMCTSAgent(MCTSAgent):
     features = self.offense_heuristic_reward(successor)
     weights = self.get_weights_offense()
     reward = features * weights
-    print(f"OFFENSE REWARD {reward}")
+    # print(f"OFFENSE REWARD {reward}")
     return reward
 
   def offense_heuristic_reward(self, successor):
@@ -277,9 +278,10 @@ class OffenseMCTSAgent(MCTSAgent):
        features['distanceToHome'] = 0
     features['carrying'] = carried
 
-    print(f"FEATURES: {features}")
-
+    # print(f"FEATURES: {features}")
     return features
+  
+
   
   def get_weights_offense(self):
     # return {'foodEaten': 100, 'closestGhostDist': 10, 'escape': -500}
@@ -288,7 +290,7 @@ class OffenseMCTSAgent(MCTSAgent):
 
 
 
-class DefenseMCTSAgent(MCTSAgent):
+class DefenseHeuristicMCTSAgent(myHeuristicMCTSAgent):
   """
   This MCTS agent attacks the opponent's pacman.
   Makes sure it is on its own territory when attacking.
@@ -363,28 +365,3 @@ class DefenseMCTSAgent(MCTSAgent):
 
 
 
-
-## CURRENTLY NOT USED
-  
-  # def select(self, node):
-  #   #print("are we here?")
-  #   while not node.is_fully_expanded():
-  #     #print("select a node")
-  #     node = node.best_child()
-  #   return node
-  
-
-  # def simulate(self, node):
-  #     """
-  #     Simulate a random playthrough from the given node.
-  #     """
-  #     current_state = node.state
-  #     while not current_state.isGameOver():
-  #         legal_actions = current_state.getLegalActions(self.index)
-  #         action = random.choice(legal_actions)  # Randomly pick an action
-  #         current_state = current_state.generateSuccessor(self.index, action)
-  #     return self.evaluate_reward(current_state)
-
-
-  # def evaluate_reward(self, gameState):
-  #     return gameState.getScore()  # You can customize this depending on your agent's strategy
