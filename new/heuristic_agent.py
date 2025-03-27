@@ -39,7 +39,7 @@ class HeuristicAgent(CaptureAgent):
   
   def registerInitialState(self, gameState):
     self.start = gameState.getAgentPosition(self.index)
-    print(f"self.start: {self.start}")
+    # print(f"self.start: {self.start}")
     CaptureAgent.registerInitialState(self, gameState)
 
   def chooseAction(self, gameState):
@@ -74,6 +74,7 @@ class HeuristicAgent(CaptureAgent):
     current_capsules = self.getCapsules(gameState)
     successor_capsules = self.getCapsules(successor)
     capsule_eaten = len(current_capsules) > len(successor_capsules)
+    score = 0
 
     if capsule_eaten:
         score -= 200  
@@ -132,6 +133,8 @@ class HeuristicAgent(CaptureAgent):
     visibleGhosts = [g for g in ghosts if not g.isPacman and g.getPosition() is not None and g.scaredTimer == 0]
     if visibleGhosts:
         closestGhost = min([self.getMazeDistance(myPos, g.getPosition()) for g in visibleGhosts])
+    else:
+        closestGhost = 100
         # features['ghostDanger'] = max(0, danger_zone - closestGhost)**2
 
     if carrying_food and closestGhost<=danger_zone:
