@@ -224,8 +224,8 @@ if __name__ == '__main__':
 
     # Hyperparameter tuning
     number_games=100
-    best_params_vanilla_mcts = hyperparameter_tuning_vanilla(number_games)
-    best_params_ucb_mcts = hyperparameter_tuning_ucb(number_games)
+    # best_params_vanilla_mcts = hyperparameter_tuning_vanilla(number_games)
+    # best_params_ucb_mcts = hyperparameter_tuning_ucb(number_games)
     best_params_heuristic_mcts = hyperparameter_tuning_heuristic_mcts(number_games)
 
     # Running tournaments 
