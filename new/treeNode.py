@@ -8,6 +8,7 @@ class Tree:
         self.visited_nodes = []
         self.times_visited = {}
         self.child_to_parent = {}
+        self.relations_dict = {}
     
 
     def update_times_visited(self, node):
@@ -30,6 +31,21 @@ class Tree:
                 self.relations[parent].append((child, action))
 
         self.child_to_parent[child] = parent
+        if self.root:
+            self.relations_dict[self.root] = [] 
+
+    def update_relations_dict(self, parent, child):
+        if parent in self.relations_dict:
+            self.relations_dict[parent].append(child)
+        else: 
+            self.relations_dict[parent] = [child]
+
+    def find_parent(self, child):
+        # print(self.relations_dict)
+        for parent, children in self.relations_dict.items():
+            if child in children:
+                return parent
+        return None 
 
 
                          
