@@ -161,6 +161,7 @@ class UCBMCTSAgent(CaptureAgent):
                 path = self.simulate(node)
                 print(f"len(path): {len(path)}")
                 self.backpropagate(path)
+
         
         best_action = max(
             root.getLegalActions(self.index),
@@ -171,31 +172,38 @@ class UCBMCTSAgent(CaptureAgent):
     
 
     def compute_reward(self, node):
+        max_value = 1000
         if node in self.total_rewards:
             initial_reward = self.total_rewards[node]
 
         else: 
             initial_reward = 0   
-
+        print(f"initial_state_reward: {initial_reward}")  
         parent = self.tree.find_parent(node)
         carrying_food = parent.getAgentState(self.index).numCarrying > 0
         
-        
-        # print(self.tree.find_parent(node))
-        print(f"initial_state_reward: {initial_reward}")    
-        if not carrying_food:
-            food_features = self.food_based_heuristic_reward(node)
-            capsule_features = self.get_capsule_heuristic(parent, node)
-            enemy_features = self.enemy_based_heuristic_reward(node)
-        
-            features = {**food_features, **enemy_features, **capsule_features}
-            
-            # Get weights for each feature 
-            weights = self.get_weights(carrying_food)
-            reward = sum(features[k] * weights[k] for k in features if k in weights)
-            print(f"calculated_reward: {reward}")
+        # successor = gameState.generateSuccessor(self.index, action)
+        myState = node.getAgentState(self.index)
+        myPos = myState.getPosition()
+        food_reward = self.get_food_reward(myPos, parent, node)
+        capsule_reward = self.get_capsule_reward(parent, node)
+        ghost_positions = self.get_opponent_distances(myPos, node)
+        score = 0
+
+        isPowered = myState.scaredTimer > 0
+        enemy_score = self.get_enemy_score(isPowered, ghost_positions)
+        carrying_food = parent.getAgentState(self.index).numCarrying > 0
+
+        danger_zone = 6
+        ghosts = [node.getAgentState(i) for i in self.getOpponents(node)]
+        visibleGhosts = [g for g in ghosts if not g.isPacman and g.getPosition() is not None and g.scaredTimer == 0]
+        if visibleGhosts:
+            closestGhost = min([self.getMazeDistance(myPos, g.getPosition()) for g in visibleGhosts])
         else:
-            features = util.Counter()
+            closestGhost = 100
+            # features['ghostDanger'] = max(0, danger_zone - closestGhost)**2
+
+        if carrying_food and closestGhost<=danger_zone:
             mid_x = parent.getWalls().width // 2
             if self.red:
                 mid_x = mid_x - 2 
@@ -206,91 +214,82 @@ class UCBMCTSAgent(CaptureAgent):
                         if not parent.hasWall(mid_x, y)]
             
             # Calculate distances to boundary positions
-            boundary_distances = [self.getMazeDistance(node.getAgentState(self.index).getPosition(), (mid_x, y)) 
+            boundary_distances = [self.getMazeDistance(myPos, (mid_x, y)) 
                                 for y in boundary_y]
             # Distance to closest boundary point
             distance_to_boundary = min(boundary_distances) if boundary_distances else 0
-            if not node.getAgentState(self.index).isPacman:
-                cross_boundry_reward = 100
+            if not myState.isPacman:
+                cross_boundry_reward = -100
             else:
                 cross_boundry_reward = 0
-            
-            features['distanceBorder'] = distance_to_boundary
-            features['crossingBorder'] = cross_boundry_reward
-            weights = self.get_weights(carrying_food)
-            reward = sum(features[k] * weights[k] for k in features if k in weights)
-            print(f"calculated_reward: {reward}")
-        
+            print(f'Closest to boundry:{distance_to_boundary} and cross_boundry: {cross_boundry_reward}')
+            return distance_to_boundary + cross_boundry_reward
+
+        reward = max_value - (food_reward + capsule_reward + enemy_score + score)
+        print(f'This is the reward when not carrying:{reward}')
         return reward
-
+        
+        # return reward
 
     
-    def enemy_based_heuristic_reward(self, successor):
-        features = util.Counter()
-        # if you are in your home territory, not a pacman then you should run towards invaders 
-        # if you are in your home territory and there are no invaders run towards the food
-        # if you are in enemy territory, run away from invaders and towards the food
-        myState = successor.getAgentState(self.index)
-        myPos = myState.getPosition()
-        isPowered = myState.scaredTimer > 0
-        enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
-        invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
-        dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders] 
-        #print(f"dists: {dists}")
-        if len(invaders) > 0:
-            dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
-            enemyDistance = min(dists)
-            features['enemyDistance'] = enemyDistance
-            print(f"minimum distance to enemy: {enemyDistance}")
-            if isPowered or not myState.isPacman:
-                features['enemyDistance'] = -enemyDistance
-                if enemyDistance == 0:
-                    features['enemyDistance'] -= 300 
-        return features
-    
-
-    def get_weights(self, carrying_food):
-        if carrying_food:
-            return {'distanceBorder': -100, 'crossingBorder': 100}
-            # return {'successorScore': 1000, 'distanceToFood': -100, 'enemyDistance': 200, 'capsuleEaten': -120}
+    def get_food_reward(self, myPos, gameState, successor):
+        foodList = self.getFood(successor).asList() 
+        current_food_list = self.getFood(gameState).asList() 
+        food_eaten = len(current_food_list) > len(foodList)
+        if len(foodList) > 0:
+            minDist = min([self.getMazeDistance(myPos, food) for food in foodList])
         else:
-            return {'successorScore': 1000, 'distanceToFood': -100, 'enemyDistance': 200, 'capsuleEaten': 120}
+            minDist = 0 
+        if food_eaten:
+            food_reward = -100  # Large reward for eating food
+        else:
+            food_reward = 0
 
-    def food_based_heuristic_reward(self, successor):
-        # TODO check weights later
-        features = util.Counter()
-        foodList = self.getFood(successor).asList()
-        print(f"len(foodList): {len(foodList)}")    
-        features['successorScore'] = -len(foodList) # the more food not in our belly => worse
-
-        # Compute distance to the nearest food
-
-        if len(foodList) > 0: # This should always be True,  but better safe than sorry
-            myState = successor.getAgentState(self.index)
-            myPos = successor.getAgentState(self.index).getPosition()
-            minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
-            if myState.isPacman:
-
-                features['distanceToFood'] = minDistance - 40
-            else: 
-                features['distanceToFood'] = minDistance 
-            print(f"minimum distance to food: {minDistance}")
-        return features
-    
-    def get_capsule_heuristic(self, gameState, successor):
-        features = util.Counter()
+        return minDist + food_reward + len(foodList)
+  
+    def get_capsule_reward(self, gameState, successor):
         current_capsules = self.getCapsules(gameState)
         successor_capsules = self.getCapsules(successor)
         capsule_eaten = len(current_capsules) > len(successor_capsules)
         score = 0
 
         if capsule_eaten:
-            score += 200  
+            score -= 200  
         else:
             score = 0
-        features['capsuleEaten'] = score
-        return features
-    
+        return score
+  
+    def get_opponent_distances(self, myPos, successor):
+        opponent_indices = self.getOpponents(successor)
+        distance_opponents = []
+        ghost_positions = []
+        for opponent in opponent_indices:
+            oppState = successor.getAgentState(opponent)
+        oppPos = oppState.getPosition()
+        if oppPos: 
+            distance = self.getMazeDistance(myPos, oppPos)
+            distance_opponents.append(distance)
+            if not oppState.isPacman: 
+                ghost_positions.append((oppPos, distance, oppState.scaredTimer > 0))
+        return ghost_positions
+  
+    def get_enemy_score(self, isPowered, ghost_positions):
+        enemy_score = 0
+        if isPowered:
+            # Find the closest ghost
+            edible_ghosts = [(pos, dist) for pos, dist, scared in ghost_positions if scared]
+            if edible_ghosts:
+                closest_ghost_dist = min(dist for _, dist in edible_ghosts)
+                enemy_score += closest_ghost_dist * 2  
+
+                if closest_ghost_dist == 0:
+                    enemy_score -= 300  # Huge reward for eating a ghost
+        else:
+            # Normal behavior - avoid ghosts
+            dangerous_ghosts = [(pos, dist) for pos, dist, scared in ghost_positions if not scared]
+            if dangerous_ghosts and min(dist for _, dist in dangerous_ghosts) < 3:
+                enemy_score += 100
+        return enemy_score
 
 
 class DeffensiveMCTSAgent(UCBMCTSAgent):
@@ -347,3 +346,69 @@ class DeffensiveMCTSAgent(UCBMCTSAgent):
             return max_value - 500
 
 
+    
+    # def enemy_based_heuristic_reward(self, successor):
+    #     features = util.Counter()
+    #     # if you are in your home territory, not a pacman then you should run towards invaders 
+    #     # if you are in your home territory and there are no invaders run towards the food
+    #     # if you are in enemy territory, run away from invaders and towards the food
+    #     myState = successor.getAgentState(self.index)
+    #     myPos = myState.getPosition()
+    #     isPowered = myState.scaredTimer > 0
+    #     enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
+    #     invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
+    #     dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders] 
+    #     #print(f"dists: {dists}")
+    #     if len(invaders) > 0:
+    #         dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
+    #         enemyDistance = min(dists)
+    #         features['enemyDistance'] = enemyDistance
+    #         print(f"minimum distance to enemy: {enemyDistance}")
+    #         if isPowered or not myState.isPacman:
+    #             features['enemyDistance'] = -enemyDistance
+    #             if enemyDistance == 0:
+    #                 features['enemyDistance'] -= 300 
+    #     return features
+    
+
+    # def get_weights(self, carrying_food):
+    #     if carrying_food:
+    #         return {'distanceBorder': -100, 'crossingBorder': 100}
+    #         # return {'successorScore': 1000, 'distanceToFood': -100, 'enemyDistance': 200, 'capsuleEaten': -120}
+    #     else:
+    #         return {'successorScore': 1000, 'distanceToFood': -100, 'enemyDistance': 200, 'capsuleEaten': 120}
+
+    # def food_based_heuristic_reward(self, successor):
+    #     # TODO check weights later
+    #     features = util.Counter()
+    #     foodList = self.getFood(successor).asList()
+    #     print(f"len(foodList): {len(foodList)}")    
+    #     features['successorScore'] = -len(foodList) # the more food not in our belly => worse
+
+    #     # Compute distance to the nearest food
+
+    #     if len(foodList) > 0: # This should always be True,  but better safe than sorry
+    #         myState = successor.getAgentState(self.index)
+    #         myPos = successor.getAgentState(self.index).getPosition()
+    #         minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
+    #         if myState.isPacman:
+
+    #             features['distanceToFood'] = minDistance - 40
+    #         else: 
+    #             features['distanceToFood'] = minDistance 
+    #         print(f"minimum distance to food: {minDistance}")
+    #     return features
+    
+    # def get_capsule_heuristic(self, gameState, successor):
+    #     features = util.Counter()
+    #     current_capsules = self.getCapsules(gameState)
+    #     successor_capsules = self.getCapsules(successor)
+    #     capsule_eaten = len(current_capsules) > len(successor_capsules)
+    #     score = 0
+
+    #     if capsule_eaten:
+    #         score += 200  
+    #     else:
+    #         score = 0
+    #     features['capsuleEaten'] = score
+    #     return features

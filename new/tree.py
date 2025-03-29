@@ -3,7 +3,6 @@ class Tree:
     def __init__(self, root=None, action = None):
         self.root = root
         self.relations_dict = {}
-        self.initialize_relations_dict()
     
     def initialize_relations_dict(self):
         if self.root:
@@ -22,3 +21,9 @@ class Tree:
             self.relations_dict[parent].append(child)
         else: 
             self.relations_dict[parent] = [child]
+
+    def find_parent(self, child):
+        for parent, children in self.relations_dict.items():
+            if child in children:
+                return parent
+        return None 
