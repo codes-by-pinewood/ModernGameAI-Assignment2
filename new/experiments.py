@@ -130,7 +130,7 @@ def hyperparameter_tuning_ucb(num_games=10):
             for exploration_constant in exploration_constants: 
                 for epsilon in epsilons:
                     games = run_capture(red, blue, length=length, num_games=num_games, num_simulations=number_simulations, epsilon=epsilon, exploration_constant=exploration_constant)
-                    save_score(games, red=red, blue=blue, length=length, number_simulations=number_simulations, file_name=file_name, epsilon=epsilon)
+                    save_score(games, red=red, blue=blue, length=length, number_simulations=number_simulations, file_name=file_name, epsilon=epsilon, exploration_constant=exploration_constant)
         
     # After running all the games do ELO
     result_score_df = pd.read_csv(f"game_scores/{file_name}.csv")
@@ -142,9 +142,10 @@ def hyperparameter_tuning_ucb(num_games=10):
                     length_str = str(length)
                     number_simulations_str = str(number_simulations)
                     epsilon_str = str(epsilon)
+                    exploration_constant_str = str(exploration_constant)
 
                     filtered = result_score_df[(result_score_df["length"] == length_str) & (result_score_df["num_simulations"] == number_simulations_str)
-                                            & (result_score_df["epsilon"] == epsilon_str)]
+                                            & (result_score_df["epsilon"] == epsilon_str) & (result_score_df["exploration_constant"] == exploration_constant_str)]
                     score_elo = compute_score_elo(df=filtered, length=length, number_simulations=number_simulations, file_name=file_name, epsilon=epsilon, exploration_constant=exploration_constant)
 
                     # COMPUTE FINAL SCORE FOR HP TUNING - UPDATE BEST SCORE IF NECESSARY
@@ -153,6 +154,46 @@ def hyperparameter_tuning_ucb(num_games=10):
                         best_param = [length, number_simulations, epsilon, exploration_constant]
 
     print(f"Best UCB MCTS hyperparameters: length={best_param[0]}, number of simulations={best_param[1]}, epsilon={best_param[2]}, exploration_constant={best_param[3]}")
+    return best_param
+
+def hyperparameter_tuning_heuristic_mcts(num_games=10):
+    # Run Heuristic MCTS vs Baseline Team
+    red = 'myHeuristicMCTS'
+    blue = 'baselineTeam'
+    file_name = f'r_{red}_b_{blue}_hpo'
+
+    lengths = [2, 4, 8, 16]
+    numbers_simulations = [10, 50, 80]
+    exploration_constants = [0.6, 0.5, 0.4, 0.1]
+    best_score = float('-inf')
+    best_param = None
+
+    for length in lengths:
+        for number_simulations in numbers_simulations:
+            for exploration_constant in exploration_constants:
+                games = run_capture(red, blue, length=length, num_games=num_games, num_simulations=number_simulations, epsilon=None, exploration_constant=exploration_constant)
+                save_score(games, red=red, blue=blue, length=length, number_simulations=number_simulations, file_name=file_name, epsilon=None, exploration_constant=exploration_constant)
+
+    # After running all the games do ELO
+    result_score_df = pd.read_csv(f"game_scores/{file_name}.csv")
+
+    for length in lengths:
+        for number_simulations in numbers_simulations:
+            for exploration_constant in exploration_constants:
+                length_str = str(length)
+                number_simulations_str = str(number_simulations)
+                exploration_constant_str = str(exploration_constant)
+
+                filtered = result_score_df[(result_score_df["length"] == length_str) & (result_score_df["num_simulations"] == number_simulations_str)
+                                            & (result_score_df["exploration_constant"] == exploration_constant_str)]
+                score_elo = compute_score_elo(df=filtered, length=length, number_simulations=number_simulations, file_name=file_name,exploration_constant=exploration_constant, epsilon=None)
+
+            # COMPUTE FINAL SCORE FOR HP TUNING - UPDATE BEST SCORE IF NECESSARY
+            if best_score < score_elo:
+                best_score = score_elo 
+                best_param = [length, number_simulations, exploration_constant]
+
+    print(f"Best Vanilla MCTS hyperparameters: length={best_param[0]}, number of simulations={best_param[1]}, exploration_constant={best_param[2]}")
     return best_param
 
 def run_tournament(red, blue, num_games, quiet):
@@ -185,6 +226,7 @@ if __name__ == '__main__':
     number_games=100
     best_params_vanilla_mcts = hyperparameter_tuning_vanilla(number_games)
     best_params_ucb_mcts = hyperparameter_tuning_ucb(number_games)
+    best_params_heuristic_mcts = hyperparameter_tuning_heuristic_mcts(number_games)
 
     # Running tournaments 
     """
