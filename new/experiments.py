@@ -4,6 +4,7 @@ from myVanillaMCTS import myVanillaMCTSAgent
 from myHeuristicMCTS import myHeuristicMCTSAgent
 import capture
 import os
+import pandas as pd
 
 
 def expected_score_elo(rating_a, rating_b):
@@ -22,7 +23,7 @@ def update_elo(rating_a, rating_b, score_a, k=32):
     return rating_a_new, rating_b_new
 
 
-def run_capture(red='baselineTeam', blue='baselineTeam', num_games=1, quiet=True, length=None, num_simulations=None, epsilon=None):
+def run_capture(red='baselineTeam', blue='baselineTeam', num_games=1, quiet=True, length=None, num_simulations=None, epsilon=None, exploration_constant=None):
     args = ['--red', red, '--blue', blue, '-n', str(num_games)]
     if quiet:
         args.append('-q')
@@ -30,144 +31,128 @@ def run_capture(red='baselineTeam', blue='baselineTeam', num_games=1, quiet=True
     if red == 'myVanillaMCTS':
         args += ['--redOpts', f'length={length},num_simulations={num_simulations}']
     elif red == 'myUCBMCTS':
-        args += ['--redOpts', f'rollout_depth={length},simulations={num_simulations},exploration_constant={epsilon}']
-
+        if epsilon == None: 
+            args += ['--redOpts', f'rollout_depth={length},simulations={num_simulations},exploration_constant={exploration_constant}']
+        else: 
+            print("EPSILON is NOT NONE")
+            args += ['--redOpts', f'rollout_depth={length},simulations={num_simulations},exploration_constant={exploration_constant},epsilon={epsilon}']
+    
     games = capture.runGames(**capture.readCommand(args))
     return games
 
-# def run_capture_heuristic(red='baselineTeam', blue='baselineTeam', num_games=1, quiet=True, length=None, num_simulations=None, epsilon=None):
-#     args = ['--red', red, '--blue', blue, '-n', str(num_games)]
-#     if quiet:
-#         args.append('-q')
+def save_score(games, red, blue, length, number_simulations, file_name, epsilon=None, exploration_constant=None):
+    game_data = []
+    for i, game in enumerate(games):
+        game_info = {
+            "game_number": i + 1,
+            "final_score": game.state.data.score,
+            "red_agent": red,
+            "blue_agent": blue,
+            "length": length,
+            "num_simulations": number_simulations,
+            "epsilon": epsilon,
+            "exploration_constant": exploration_constant
+        }
+        game_data.append(game_info)
 
-#     # if red == 'heuristic_agent':
-#     #     args += ['--redOpts']
-#     # elif red == 'myUCBMCTS':
-#     #     args += ['--redOpts', f'rollout_depth={length},simulations={num_simulations},exploration_constant={epsilon}']
-
-#     games = capture.runGames(**capture.readCommand(args))
-#     return games
-
-
-def save_score(i, game, red, blue, length, num_sim, epsilon):
-    if red == 'myVanillaMCTS':
-        with open(f'game_scores/score_r_{red}_b_{blue}_depth_{length}_numsim_{num_sim}.csv', 'a') as f:
-            print(f'{i+1},{game.state.data.score}', file=f)
-    elif red =='myUCBMCTS':
-        with open(f'game_scores/score_r_{red}_b_{blue}_depth_{length}_numsim_{num_sim}_e_{epsilon}.csv', 'a') as f:
-            print(f'{i+1},{game.state.data.score}', file=f)
-    elif red =='heuristic_agent':
-        with open(f'game_scores/score_r_{red}_b_{blue}.csv', 'a') as f:
-            print(f'{i+1},{game.state.data.score}', file=f)
+    pd.DataFrame(game_data).to_csv(f"game_scores/{file_name}.csv", mode='a', index=False)
 
 
-def hyperparameter_tuning_vanilla():
+def compute_score_elo(df, length, number_simulations, file_name, epsilon, exploration_constant):
+    rating_a = 0
+    rating_b = 0
+
+    for _, row in df.iterrows():
+        score = int(row["final_score"])
+        if score == 0:
+            score_a = 0.5
+        else:
+            score_a = 0 if score < 0 else 1
+        rating_a, rating_b = update_elo(rating_a, rating_b, score_a)
+
+    with open(f"game_scores/elo_{file_name}.csv", "a") as f:
+        print(f"Length={length}, num_simulations={number_simulations}, epsilon={epsilon}, exploration_constant={exploration_constant}", file=f)
+        print(f"Final ratings: rating a = {rating_a}, rating b = {rating_b}", file=f)
+
+    return rating_a
+
+
+def hyperparameter_tuning_vanilla(num_games=10):
     # Run Vanilla MCTS vs Baseline Team
     red = 'myVanillaMCTS'
     blue = 'baselineTeam'
+    file_name = f'r_{red}_b_{blue}_hpo'
 
-    lengths = [2, 4, 8, 16, 32]
-    numbers_simulations = [10, 50, 100]
+    lengths = [2, 4, 8, 16]
+    numbers_simulations = [10, 50, 80]
     best_score = float('-inf')
     best_param = None
 
     for length in lengths:
         for number_simulations in numbers_simulations:
-            print(f'length: {length}')
-            print(f'numbers_simulations: {number_simulations}')
+            games = run_capture(red, blue, length=length, num_games=num_games, num_simulations=number_simulations, epsilon=None, exploration_constant=None)
+            save_score(games, red=red, blue=blue, length=length, number_simulations=number_simulations, file_name=file_name, epsilon=None, exploration_constant=None)
 
-            games = run_capture(red, blue, length=length, num_simulations=number_simulations, epsilon=None)
-            for i, game in enumerate(games):
-                save_score(i, game, red, blue, length=length, num_sim=number_simulations, epsilon=None)
-                print(f"Game {i+1}: Final Score = {game.state.data.score}")
+    # After running all the games do ELO
+    result_score_df = pd.read_csv(f"game_scores/{file_name}.csv")
 
-            # After running all the games do ELO
-            rating_a = 0
-            rating_b = 0
-            with open(f'game_scores/score_r_{red}_b_{blue}_depth_{length}_numsim_{number_simulations}.csv', 'r') as f:
-                for line in f:
-                    parts = line.strip().split(',')
-                    if len(parts)>1:
-                        score = int(parts[1])
-                        
-                        if score == 0: score_a = 0.5
-                        else: score_a = 0 if score < 0 else 1
+    for length in lengths:
+        for number_simulations in numbers_simulations:
+            length_str = str(length)
+            number_simulations_str = str(number_simulations)
 
-                        rating_a, rating_b = update_elo(rating_a, rating_b, score_a)
-
-            with open(f'game_scores/elo_r_{red}_b_{blue}_depth_{length}_numsim_{number_simulations}.csv', 'a') as f:
-                print(f'Length={length}, num_simulations={number_simulations}', file=f)
-                print(f"Final ratings: rating a = {rating_a}, rating b = {rating_b}", file=f)
-
-            # Save to reuse for HP evaluation
-            score_elo = rating_a
-            
-            # HERE ADD TRUESKILL
-            score_trueskill = 0
+            filtered = result_score_df[(result_score_df["length"] == length_str) & (result_score_df["num_simulations"] == number_simulations_str)]
+            score_elo = compute_score_elo(df=filtered, length=length, number_simulations=number_simulations, file_name=file_name, epsilon=None)
 
             # COMPUTE FINAL SCORE FOR HP TUNING - UPDATE BEST SCORE IF NECESSARY
-            final_score = score_elo + score_trueskill
-            if best_score < final_score:
-                best_score = final_score 
+            if best_score < score_elo:
+                best_score = score_elo 
                 best_param = [length, number_simulations]
 
     print(f"Best Vanilla MCTS hyperparameters: length={best_param[0]}, number of simulations={best_param[1]}")
     return best_param
 
-def hyperparameter_tuning_ucb():
+def hyperparameter_tuning_ucb(num_games=10):
     # Run UCB MCTS vs Baseline Team
     red = 'myUCBMCTS'
     blue = 'baselineTeam'
+    file_name = f'r_{red}_b_{blue}_hpo'
 
-    lengths = [2, 4, 8, 16, 32]
-    numbers_simulations = [10, 50, 100]
-    epsilons = [0.1, 0.05, 0.01]
+    lengths = [2, 4, 8, 16]
+    numbers_simulations = [10, 50, 80]
+    exploration_constants = [0.6, 0.5, 0.4, 0.1]
+    epsilons = [0.1, 0.05, 0.01] # HERE 
     best_score = float('-inf')
     best_param = None
 
     for length in lengths:
         for number_simulations in numbers_simulations:
-            for epsilon in epsilons:
-                print(f'length: {length}')
-                print(f'numbers_simulations: {number_simulations}')
-                print(f'epsilon: {epsilon}')
+            for exploration_constant in exploration_constants: 
+                for epsilon in epsilons:
+                    games = run_capture(red, blue, length=length, num_games=num_games, num_simulations=number_simulations, epsilon=epsilon, exploration_constant=exploration_constant)
+                    save_score(games, red=red, blue=blue, length=length, number_simulations=number_simulations, file_name=file_name, epsilon=epsilon)
+        
+    # After running all the games do ELO
+    result_score_df = pd.read_csv(f"game_scores/{file_name}.csv")
 
-                games = run_capture(red, blue, length=length, num_simulations=number_simulations, epsilon=epsilon)
-                for i, game in enumerate(games):
-                    save_score(i, game, red, blue, length=length, num_sim=number_simulations, epsilon=epsilon)
-                    print(f"Game {i+1}: Final Score = {game.state.data.score}")
+    for length in lengths:
+        for number_simulations in numbers_simulations:
+            for exploration_constant in exploration_constants: 
+                for epsilon in epsilons:
+                    length_str = str(length)
+                    number_simulations_str = str(number_simulations)
+                    epsilon_str = str(epsilon)
 
-                # After running all the games do ELO
-                rating_a = 0
-                rating_b = 0
-                with open(f'game_scores/score_r_{red}_b_{blue}_depth_{length}_numsim_{number_simulations}_e_{epsilon}.csv', 'r') as f:
-                    for line in f:
-                        parts = line.strip().split(',')
-                        if len(parts)>1:
-                            score = int(parts[1])
-                            
-                            if score == 0: score_a = 0.5
-                            else: score_a = 0 if score < 0 else 1
+                    filtered = result_score_df[(result_score_df["length"] == length_str) & (result_score_df["num_simulations"] == number_simulations_str)
+                                            & (result_score_df["epsilon"] == epsilon_str)]
+                    score_elo = compute_score_elo(df=filtered, length=length, number_simulations=number_simulations, file_name=file_name, epsilon=epsilon, exploration_constant=exploration_constant)
 
-                            rating_a, rating_b = update_elo(rating_a, rating_b, score_a)
+                    # COMPUTE FINAL SCORE FOR HP TUNING - UPDATE BEST SCORE IF NECESSARY
+                    if best_score < score_elo:
+                        best_score = score_elo 
+                        best_param = [length, number_simulations, epsilon, exploration_constant]
 
-                with open(f'game_scores/elo_r_{red}_b_{blue}_depth_{length}_numsim_{number_simulations}_e_{epsilon}.csv', 'a') as f:
-                    print(f'Final ratings: rating a = {rating_a}, length={length}, num_simulations={number_simulations}, epsilon={epsilon}', file=f)
-                    # print(f"Final ratings: rating a = {rating_a}, rating b = {rating_b}", file=f)
-
-                # Save to reuse for HP evaluation
-                score_elo = rating_a
-                
-                # HERE ADD TRUESKILL
-                score_trueskill = 0
-
-                # COMPUTE FINAL SCORE FOR HP TUNING - UPDATE BEST SCORE IF NECESSARY
-                final_score = score_elo + score_trueskill
-                if best_score < final_score:
-                    best_score = final_score 
-                    best_param = [length, number_simulations, epsilon]
-
-    print(f"Best UCB MCTS hyperparameters: length={best_param[0]}, number of simulations={best_param[1]}, epsilon={best_param[2]}")
+    print(f"Best UCB MCTS hyperparameters: length={best_param[0]}, number of simulations={best_param[1]}, epsilon={best_param[2]}, exploration_constant={best_param[3]}")
     return best_param
 
 def run_tournament(red, blue, num_games, quiet):
@@ -192,55 +177,24 @@ def run_tournament(red, blue, num_games, quiet):
 
     with open(f'game_scores/score_r_{red}_b_{blue}.csv', 'a') as f:
         print(f'Final ratings: rating a = {rating_a}', file=f)
-        # print(f"Final ratings: rating a = {rating_a}, rating b = {rating_b}", file=f)
 
 
 if __name__ == '__main__':
 
-    # to make sure the folder exists if not creates it 
-    # os.makedirs('game_scores', exist_ok=True)
-
-    # games = run_capture_heuristic('heuristic_agent', 'baselineTeam', num_games=100)
-    # for i, game in enumerate(games):
-    #     save_score(i, game, 'heuristic_agent', 'baselineTeam', length=0, num_sim=0, epsilon=0)
-    #     print(f"Game {i+1}: Final Score = {game.state.data.score}")
-
-    # rating_a = 0
-    # rating_b = 0
-    # with open(f'game_scores/score_r_heuristic_agent_b_baselineTeam.csv', 'r') as f:
-    #     for line in f:
-    #         parts = line.strip().split(',')
-    #         if len(parts)>1:
-    #             score = int(parts[1])
-            
-    #             if score == 0: score_a = 0.5
-    #             else: score_a = 0 if score < 0 else 1
-
-    #             rating_a, rating_b = update_elo(rating_a, rating_b, score_a)
-
-    # with open(f'game_scores/score_r_heuristic_agent_b_baselineTeam.csv', 'a') as f:
-    #     print(f'Final ratings: rating a = {rating_a}', file=f)
-    #     # print(f"Final ratings: rating a = {rating_a}, rating b = {rating_b}", file=f)
-
-    # # Save to reuse for HP evaluation
-    # score_elo = rating_a
-    
-    # # HERE ADD TRUESKILL
-    # score_trueskill = 0
-
-
-    # HYPERPARAMETER TUNING
-    # best_params_vanilla_mcts = hyperparameter_tuning_vanilla()
-    # best_params_ucb_mcts = hyperparameter_tuning_ucb()
+    # Hyperparameter tuning
+    number_games=10
+    best_params_vanilla_mcts = hyperparameter_tuning_vanilla(number_games)
+    best_params_ucb_mcts = hyperparameter_tuning_ucb(number_games)
 
     # Running tournaments 
-    # Logic: first naive VS baseline, second - heuristic VS baseline, 
-    # (if heuristic wins, which it does) UCB VS heuristic, e-decay VS best so far
+    """
+    Logic: first naive VS baseline, second - heuristic VS baseline, 
+    (if heuristic wins, which it does) UCB VS heuristic, e-decay VS best so far
     red = 'myVanillaMCTS'
     blue = 'baselineTeam'
     print(f"Tournament: {red} VS {blue}")
     run_tournament(red, blue, quiet=True, num_games=2)
-    
+
     red = 'heuristic_agent'
     blue = 'baselineTeam'
     print(f"Tournament: {red} VS {blue}")
@@ -250,3 +204,7 @@ if __name__ == '__main__':
     blue = 'heuristic_agent'
     print(f"Tournament: {red} VS {blue}")
     run_tournament(red, blue, quiet=True, num_games=2)
+    """
+
+
+
