@@ -102,7 +102,7 @@ def hyperparameter_tuning_vanilla(num_games=10):
             number_simulations_str = str(number_simulations)
 
             filtered = result_score_df[(result_score_df["length"] == length_str) & (result_score_df["num_simulations"] == number_simulations_str)]
-            score_elo = compute_score_elo(df=filtered, length=length, number_simulations=number_simulations, file_name=file_name, epsilon=None)
+            score_elo = compute_score_elo(df=filtered, length=length, number_simulations=number_simulations, file_name=file_name,exploration_constant=None, epsilon=None)
 
             # COMPUTE FINAL SCORE FOR HP TUNING - UPDATE BEST SCORE IF NECESSARY
             if best_score < score_elo:
@@ -182,7 +182,7 @@ def run_tournament(red, blue, num_games, quiet):
 if __name__ == '__main__':
 
     # Hyperparameter tuning
-    number_games=10
+    number_games=100
     best_params_vanilla_mcts = hyperparameter_tuning_vanilla(number_games)
     best_params_ucb_mcts = hyperparameter_tuning_ucb(number_games)
 
