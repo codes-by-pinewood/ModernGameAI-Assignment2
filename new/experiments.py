@@ -35,18 +35,18 @@ def run_capture(red='baselineTeam', blue='baselineTeam', num_games=1, quiet=True
     games = capture.runGames(**capture.readCommand(args))
     return games
 
-def run_capture_heuristic(red='baselineTeam', blue='baselineTeam', num_games=1, quiet=True, length=None, num_simulations=None, epsilon=None):
-    args = ['--red', red, '--blue', blue, '-n', str(num_games)]
-    if quiet:
-        args.append('-q')
+# def run_capture_heuristic(red='baselineTeam', blue='baselineTeam', num_games=1, quiet=True, length=None, num_simulations=None, epsilon=None):
+#     args = ['--red', red, '--blue', blue, '-n', str(num_games)]
+#     if quiet:
+#         args.append('-q')
 
-    # if red == 'heuristic_agent':
-    #     args += ['--redOpts']
-    # elif red == 'myUCBMCTS':
-    #     args += ['--redOpts', f'rollout_depth={length},simulations={num_simulations},exploration_constant={epsilon}']
+#     # if red == 'heuristic_agent':
+#     #     args += ['--redOpts']
+#     # elif red == 'myUCBMCTS':
+#     #     args += ['--redOpts', f'rollout_depth={length},simulations={num_simulations},exploration_constant={epsilon}']
 
-    games = capture.runGames(**capture.readCommand(args))
-    return games
+#     games = capture.runGames(**capture.readCommand(args))
+#     return games
 
 
 def save_score(i, game, red, blue, length, num_sim, epsilon):
@@ -121,7 +121,7 @@ def hyperparameter_tuning_ucb():
 
     lengths = [2, 4, 8, 16, 32]
     numbers_simulations = [10, 50, 100]
-    epsilons = [ 0.1, 0.05, 0.01]
+    epsilons = [0.1, 0.05, 0.01]
     best_score = float('-inf')
     best_param = None
 
@@ -170,21 +170,16 @@ def hyperparameter_tuning_ucb():
     print(f"Best UCB MCTS hyperparameters: length={best_param[0]}, number of simulations={best_param[1]}, epsilon={best_param[2]}")
     return best_param
 
+def run_tournament(red, blue, num_games, quiet):
 
-if __name__ == '__main__':
-
-
-    # to make sure the folder exists if not creates it 
-    os.makedirs('game_scores', exist_ok=True)
-
-    games = run_capture_heuristic('heuristic_agent', 'baselineTeam', num_games=100)
+    games = run_capture(red=red, blue=blue, num_games=num_games, quiet=quiet)
     for i, game in enumerate(games):
-        save_score(i, game, 'heuristic_agent', 'baselineTeam', length=0, num_sim=0, epsilon=0)
+        save_score(i, game, red, blue, length=0, num_sim=0, epsilon=0)
         print(f"Game {i+1}: Final Score = {game.state.data.score}")
 
     rating_a = 0
     rating_b = 0
-    with open(f'game_scores/score_r_heuristic_agent_b_baselineTeam.csv', 'r') as f:
+    with open(f'game_scores/score_r_{red}_b_{blue}.csv', 'r') as f:
         for line in f:
             parts = line.strip().split(',')
             if len(parts)>1:
@@ -195,19 +190,63 @@ if __name__ == '__main__':
 
                 rating_a, rating_b = update_elo(rating_a, rating_b, score_a)
 
-    with open(f'game_scores/score_r_heuristic_agent_b_baselineTeam.csv', 'a') as f:
+    with open(f'game_scores/score_r_{red}_b_{blue}.csv', 'a') as f:
         print(f'Final ratings: rating a = {rating_a}', file=f)
         # print(f"Final ratings: rating a = {rating_a}, rating b = {rating_b}", file=f)
 
-    # Save to reuse for HP evaluation
-    score_elo = rating_a
+
+if __name__ == '__main__':
+
+    # to make sure the folder exists if not creates it 
+    # os.makedirs('game_scores', exist_ok=True)
+
+    # games = run_capture_heuristic('heuristic_agent', 'baselineTeam', num_games=100)
+    # for i, game in enumerate(games):
+    #     save_score(i, game, 'heuristic_agent', 'baselineTeam', length=0, num_sim=0, epsilon=0)
+    #     print(f"Game {i+1}: Final Score = {game.state.data.score}")
+
+    # rating_a = 0
+    # rating_b = 0
+    # with open(f'game_scores/score_r_heuristic_agent_b_baselineTeam.csv', 'r') as f:
+    #     for line in f:
+    #         parts = line.strip().split(',')
+    #         if len(parts)>1:
+    #             score = int(parts[1])
+            
+    #             if score == 0: score_a = 0.5
+    #             else: score_a = 0 if score < 0 else 1
+
+    #             rating_a, rating_b = update_elo(rating_a, rating_b, score_a)
+
+    # with open(f'game_scores/score_r_heuristic_agent_b_baselineTeam.csv', 'a') as f:
+    #     print(f'Final ratings: rating a = {rating_a}', file=f)
+    #     # print(f"Final ratings: rating a = {rating_a}, rating b = {rating_b}", file=f)
+
+    # # Save to reuse for HP evaluation
+    # score_elo = rating_a
     
-    # HERE ADD TRUESKILL
-    score_trueskill = 0
+    # # HERE ADD TRUESKILL
+    # score_trueskill = 0
 
 
     # HYPERPARAMETER TUNING
-    best_params_vanilla_mcts = hyperparameter_tuning_vanilla()
-    best_params_ucb_mcts = hyperparameter_tuning_ucb()
+    # best_params_vanilla_mcts = hyperparameter_tuning_vanilla()
+    # best_params_ucb_mcts = hyperparameter_tuning_ucb()
+
+    # Running tournaments 
+    # Logic: first naive VS baseline, second - heuristic VS baseline, 
+    # (if heuristic wins, which it does) UCB VS heuristic, e-decay VS best so far
+    red = 'myVanillaMCTS'
+    blue = 'baselineTeam'
+    print(f"Tournament: {red} VS {blue}")
+    run_tournament(red, blue, quiet=True, num_games=2)
     
-   
+    red = 'heuristic_agent'
+    blue = 'baselineTeam'
+    print(f"Tournament: {red} VS {blue}")
+    run_tournament(red, blue, quiet=True, num_games=2)
+
+    red = 'myUCBMCTS'
+    blue = 'heuristic_agent'
+    print(f"Tournament: {red} VS {blue}")
+    run_tournament(red, blue, quiet=True, num_games=2)
