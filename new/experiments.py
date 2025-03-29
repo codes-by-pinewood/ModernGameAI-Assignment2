@@ -36,7 +36,9 @@ def run_capture(red='baselineTeam', blue='baselineTeam', num_games=1, quiet=True
         else: 
             print("EPSILON is NOT NONE")
             args += ['--redOpts', f'rollout_depth={length},simulations={num_simulations},exploration_constant={exploration_constant},epsilon={epsilon}']
-    
+    elif red == 'myHeuristicMCTS':
+            args += ['--redOpts', f'length={length},num_simulations={num_simulations},exploration_constant={exploration_constant}']
+
     games = capture.runGames(**capture.readCommand(args))
     return games
 
@@ -162,15 +164,18 @@ def hyperparameter_tuning_heuristic_mcts(num_games=10):
     blue = 'baselineTeam'
     file_name = f'r_{red}_b_{blue}_hpo'
 
-    lengths = [2, 4, 8, 16]
+    lengths = [2, 4]#, 8, 16]
     numbers_simulations = [10, 50, 80]
     exploration_constants = [0.6, 0.5, 0.4, 0.1]
     best_score = float('-inf')
     best_param = None
 
     for length in lengths:
+        print(f"----------- Length: {length} -----------")
         for number_simulations in numbers_simulations:
+            print(f"----------- Number of Simulations: {number_simulations} -----------")
             for exploration_constant in exploration_constants:
+                print(f"----------- Exploration Constant: {exploration_constant} -----------")
                 games = run_capture(red, blue, length=length, num_games=num_games, num_simulations=number_simulations, epsilon=None, exploration_constant=exploration_constant)
                 save_score(games, red=red, blue=blue, length=length, number_simulations=number_simulations, file_name=file_name, epsilon=None, exploration_constant=exploration_constant)
 
@@ -223,7 +228,7 @@ def run_tournament(red, blue, num_games, quiet):
 if __name__ == '__main__':
 
     # Hyperparameter tuning
-    number_games=100
+    number_games=10
     # best_params_vanilla_mcts = hyperparameter_tuning_vanilla(number_games)
     # best_params_ucb_mcts = hyperparameter_tuning_ucb(number_games)
     best_params_heuristic_mcts = hyperparameter_tuning_heuristic_mcts(number_games)

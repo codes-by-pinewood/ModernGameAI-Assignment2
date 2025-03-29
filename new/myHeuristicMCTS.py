@@ -11,7 +11,7 @@ import math
 #################
 
 def createTeam(firstIndex, secondIndex, isRed,
-               first = 'OffenseHeuristicMCTSAgent', second = 'DefenseHeuristicMCTSAgent'):
+               first = 'OffenseHeuristicMCTSAgent', second = 'DefenseHeuristicMCTSAgent', **kwargs):
   """
   This function should return a list of two agents that will form the
   team, initialized using firstIndex and secondIndex as their agent
@@ -27,9 +27,17 @@ def createTeam(firstIndex, secondIndex, isRed,
   behavior is what you want for the nightly contest.
   """
   # The following line is an example only; feel free to change it.
-  return [eval(first)(firstIndex), eval(second)(secondIndex)]
+#   return [eval(first)(firstIndex), eval(second)(secondIndex)]
 
+  agents = [eval(first)(firstIndex), eval(second)(secondIndex)]
+  
+  # Save all string-valued opts into each agent's __dict__
+  for agent in agents:
+      for key, val in kwargs.items():
+          if isinstance(val, str) and key not in ['first', 'second']:
+              setattr(agent, key, val)
 
+  return agents
 ##########
 # Agents #
 #########
@@ -39,6 +47,9 @@ class myHeuristicMCTSAgent(CaptureAgent):
       super().__init__(index)
       self.root = None
       self.global_reward_dict = {}
+      self.num_simulations = 10
+      self.length = 4
+      self.exploration_constant = 0.3
       self.initialize_global_reward_dict()
 
 
@@ -75,6 +86,13 @@ class myHeuristicMCTSAgent(CaptureAgent):
     on initialization time, please take a look at
     CaptureAgent.registerInitialState in captureAgents.py.
     '''
+    if hasattr(self, 'length'):
+        self.length = int(self.length)
+    if hasattr(self, 'num_simulations'):
+        self.num_simulations = int(self.num_simulations)
+    if hasattr(self, 'exploration_constant'):
+        self.exploration_constant = float(self.exploration_constant)
+
     CaptureAgent.registerInitialState(self, gameState)
     
   def chooseAction(self, node):
@@ -82,17 +100,13 @@ class myHeuristicMCTSAgent(CaptureAgent):
     root = node
     self.visited_gamestates.append(root)
 
-    # Choose number of simulations and their length
-    num_simulations = 50
-    length_of_one_sim_path = 4
-
     # For each simulation, dict: key-simulation path, value-reward; list: all simulations' paths; reverse penalty score for each simulation
     simulation_rewards = {} 
     simulation_paths = []
     reverse_penalties = []
 
 
-    for sim_idx in range(num_simulations):
+    for sim_idx in range(self.num_simulations):
         # Start each simulation from the original root
         node = root  
           
@@ -103,7 +117,7 @@ class myHeuristicMCTSAgent(CaptureAgent):
         prev_action = None
         reverse_penalty = 0
 
-        for _ in range(length_of_one_sim_path):
+        for _ in range(self.length):
             # Step
             selected_action = self.heuristic_action(node, epsilon=0.1)
             child = node.generateSuccessor(self.index, selected_action)
@@ -278,11 +292,11 @@ class OffenseHeuristicMCTSAgent(myHeuristicMCTSAgent):
               cross_boundry_reward = -100
           else:
               cross_boundry_reward = 0
-          print(f'Closest to boundry:{distance_to_boundary} and cross_boundry: {cross_boundry_reward}')
+        #   print(f'Closest to boundry:{distance_to_boundary} and cross_boundry: {cross_boundry_reward}')
           return distance_to_boundary + cross_boundry_reward
 
       reward = max_value - (food_reward + capsule_reward + enemy_score + score)
-      print(f'This is the reward when not carrying:{reward}')
+    #   print(f'This is the reward when not carrying:{reward}')
       return reward
         
         # return reward
