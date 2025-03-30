@@ -1,6 +1,6 @@
 # from trueskill import Rating, quality_1vs1, rate_1vs1
 from baselineTeam import ReflexCaptureAgent 
-from myNaiveMCTS import myNaiveMCTSAgent
+from new.myNaiveMCTS import myVanillaMCTSAgent
 from myHeuristicMCTS import myHeuristicMCTSAgent
 import capture
 import os
@@ -28,9 +28,9 @@ def run_capture(red='baselineTeam', blue='baselineTeam', num_games=1, quiet=True
     if quiet:
         args.append('-q')
 
-    if red == 'myNaiveMCTS':
+    if red == 'myVanillaMCTS':
         args += ['--redOpts', f'length={length},num_simulations={num_simulations}']
-    elif red == 'myUCTMCTS':
+    elif red == 'myUCBMCTS':
         if epsilon == None: 
             args += ['--redOpts', f'rollout_depth={length},simulations={num_simulations},exploration_constant={exploration_constant}']
         else: 
@@ -79,9 +79,9 @@ def compute_score_elo(df, length, number_simulations, file_name, epsilon, explor
     return rating_a
 
 
-def hyperparameter_tuning_naive(num_games=10):
-    # Run Naive MCTS vs Baseline Team
-    red = 'myNaiveMCTS'
+def hyperparameter_tuning_vanilla(num_games=10):
+    # Run Vanilla MCTS vs Baseline Team
+    red = 'myVanillaMCTS'
     blue = 'baselineTeam'
     file_name = f'r_{red}_b_{blue}_hpo'
 
@@ -111,16 +111,16 @@ def hyperparameter_tuning_naive(num_games=10):
                 best_score = score_elo 
                 best_param = [length, number_simulations]
 
-    print(f"Best Naive MCTS hyperparameters: length={best_param[0]}, number of simulations={best_param[1]}")
+    print(f"Best Vanilla MCTS hyperparameters: length={best_param[0]}, number of simulations={best_param[1]}")
     return best_param
 
-def hyperparameter_tuning_uct(num_games=10):
-    # Run UCT MCTS vs Baseline Team
-    red = 'myUCTMCTS'
+def hyperparameter_tuning_ucb(num_games=10):
+    # Run UCB MCTS vs Baseline Team
+    red = 'myUCBMCTS'
     blue = 'baselineTeam'
     file_name = f'r_{red}_b_{blue}_hpo'
 
-    lengths = [16] # [2, 4, 8, 16]
+    lengths = [2, 4, 8, 16]
     numbers_simulations = [10, 50, 80]
     exploration_constants = [0.6, 0.5, 0.4, 0.1]
     epsilons = [0.1, 0.05, 0.01] # HERE 
@@ -155,7 +155,7 @@ def hyperparameter_tuning_uct(num_games=10):
                         best_score = score_elo 
                         best_param = [length, number_simulations, epsilon, exploration_constant]
 
-    print(f"Best UCT MCTS hyperparameters: length={best_param[0]}, number of simulations={best_param[1]}, epsilon={best_param[2]}, exploration_constant={best_param[3]}")
+    print(f"Best UCB MCTS hyperparameters: length={best_param[0]}, number of simulations={best_param[1]}, epsilon={best_param[2]}, exploration_constant={best_param[3]}")
     return best_param
 
 def hyperparameter_tuning_heuristic_mcts(num_games=10):
@@ -164,7 +164,7 @@ def hyperparameter_tuning_heuristic_mcts(num_games=10):
     blue = 'baselineTeam'
     file_name = f'r_{red}_b_{blue}_hpo'
 
-    lengths = [8, 16] # [2, 4, 8, 16]
+    lengths = [2, 4]#, 8, 16]
     numbers_simulations = [10, 50, 80]
     exploration_constants = [0.6, 0.5, 0.4, 0.1]
     best_score = float('-inf')
@@ -198,54 +198,56 @@ def hyperparameter_tuning_heuristic_mcts(num_games=10):
                 best_score = score_elo 
                 best_param = [length, number_simulations, exploration_constant]
 
-    print(f"Best Heuristic-Based MCTS hyperparameters: length={best_param[0]}, number of simulations={best_param[1]}, exploration_constant={best_param[2]}")
+    print(f"Best Heuristic-based MCTS hyperparameters: length={best_param[0]}, number of simulations={best_param[1]}, exploration_constant={best_param[2]}")
     return best_param
 
-def run_tournament(red, blue, num_games, quiet, length, num_simulations, epsilon=None, exploration_constant=None):
-    file_name = f'tournament_r_{red}_b_{blue}'
-    games = run_capture(red=red, blue=blue, num_games=num_games, quiet=quiet, length=length, num_simulations=num_simulations, epsilon=epsilon, exploration_constant=exploration_constant)
-    save_score(games, red, blue, length=length, number_simulations=num_simulations, file_name=file_name)
+def run_tournament(red, blue, num_games, quiet):
 
-    result_score_df = pd.read_csv(f"game_scores/{file_name}.csv")
+    games = run_capture(red=red, blue=blue, num_games=num_games, quiet=quiet)
+    for i, game in enumerate(games):
+        save_score(i, game, red, blue, length=0, num_sim=0, epsilon=0)
+        print(f"Game {i+1}: Final Score = {game.state.data.score}")
 
-    if red == ('myNaiveMCTS'):
-        filtered = result_score_df[(result_score_df["length"] == length) & (result_score_df["num_simulations"] == num_simulations)]
+    rating_a = 0
+    rating_b = 0
+    with open(f'game_scores/score_r_{red}_b_{blue}.csv', 'r') as f:
+        for line in f:
+            parts = line.strip().split(',')
+            if len(parts)>1:
+                score = int(parts[1])
+            
+                if score == 0: score_a = 0.5
+                else: score_a = 0 if score < 0 else 1
 
-    print(filtered)
-    score_elo = compute_score_elo(df=filtered, length=length, number_simulations=num_simulations, file_name=file_name, epsilon=epsilon, exploration_constant=exploration_constant)
-    print(f'ELO rating for {red} agent VS {blue} agent is:  {score_elo}')
+                rating_a, rating_b = update_elo(rating_a, rating_b, score_a)
+
+    with open(f'game_scores/score_r_{red}_b_{blue}.csv', 'a') as f:
+        print(f'Final ratings: rating a = {rating_a}', file=f)
 
 
 if __name__ == '__main__':
 
     # Hyperparameter tuning
-    # number_games = 100
-    # best_params_naive_mcts = hyperparameter_tuning_naive(number_games)
-    # best_params_uct_mcts = hyperparameter_tuning_uct(number_games)
-    # best_params_heuristic_mcts = hyperparameter_tuning_heuristic_mcts(number_games)
+    number_games=10
+    # best_params_vanilla_mcts = hyperparameter_tuning_vanilla(number_games)
+    # best_params_ucb_mcts = hyperparameter_tuning_ucb(number_games)
+    best_params_heuristic_mcts = hyperparameter_tuning_heuristic_mcts(number_games)
 
     # Running tournaments 
     """
-    Logic: first naive VS baseline, second - uct VS uct + decay, 
-    best uct VS heuristic MCTS, best so far vs heuristic agent
-    """
-    red = 'myNaiveMCTS'
+    Logic: first naive VS baseline, second - heuristic VS baseline, 
+    (if heuristic wins, which it does) UCB VS heuristic, e-decay VS best so far
+    red = 'myVanillaMCTS'
     blue = 'baselineTeam'
     print(f"Tournament: {red} VS {blue}")
-    naive_depth = 8
-    naive_num_simulations = 10
-    run_tournament(red, blue, quiet=True, num_games=100, length=naive_depth, num_simulations=naive_num_simulations)
+    run_tournament(red, blue, quiet=True, num_games=2)
 
-
-
-
-    """
     red = 'heuristic_agent'
     blue = 'baselineTeam'
     print(f"Tournament: {red} VS {blue}")
     run_tournament(red, blue, quiet=True, num_games=2)
 
-    red = 'myUCTMCTS'
+    red = 'myUCBMCTS'
     blue = 'heuristic_agent'
     print(f"Tournament: {red} VS {blue}")
     run_tournament(red, blue, quiet=True, num_games=2)

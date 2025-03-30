@@ -12,26 +12,8 @@ import math
 
 def createTeam(firstIndex, secondIndex, isRed,
                first = 'OffenseHeuristicMCTSAgent', second = 'DefenseHeuristicMCTSAgent', **kwargs):
-  """
-  This function should return a list of two agents that will form the
-  team, initialized using firstIndex and secondIndex as their agent
-  index numbers.  isRed is True if the red team is being created, and
-  will be False if the blue team is being created.
-
-  As a potentially helpful development aid, this function can take
-  additional string-valued keyword arguments ("first" and "second" are
-  such arguments in the case of this function), which will come from
-  the --redOpts and --blueOpts command-line arguments to capture.py.
-  For the nightly contest, however, your team will be created without
-  any extra arguments, so you should make sure that the default
-  behavior is what you want for the nightly contest.
-  """
-  # The following line is an example only; feel free to change it.
-#   return [eval(first)(firstIndex), eval(second)(secondIndex)]
-
   agents = [eval(first)(firstIndex), eval(second)(secondIndex)]
   
-  # Save all string-valued opts into each agent's __dict__
   for agent in agents:
       for key, val in kwargs.items():
           if isinstance(val, str) and key not in ['first', 'second']:
@@ -61,31 +43,10 @@ class myHeuristicMCTSAgent(CaptureAgent):
       self.global_reward_dict[self.root] = 0
   
 
-  # def update_global_reward_dict(self, node, reward):
-  #   self.global_reward_dict[node] = reward
-
 
   def registerInitialState(self, gameState):
-    """
-    This method handles the initial setup of the
-    agent to populate useful fields (such as what team
-    we're on).
-
-    A distanceCalculator instance caches the maze distances
-    between each pair of positions, so your agents can use:
-    self.distancer.getDistance(p1, p2)
-
-    IMPORTANT: This method may run for at most 15 seconds.
-    """
     self.tree = Tree(root = gameState)
     self.visited_gamestates = []
-
-    '''
-    Make sure you do not delete the following line. If you would like to
-    use Manhattan distances instead of maze distances in order to save
-    on initialization time, please take a look at
-    CaptureAgent.registerInitialState in captureAgents.py.
-    '''
     if hasattr(self, 'length'):
         self.length = int(self.length)
     if hasattr(self, 'num_simulations'):
@@ -146,17 +107,14 @@ class myHeuristicMCTSAgent(CaptureAgent):
         # After the end of a simulation, append the whole path and reverse penalties
         simulation_paths.append(simulation_path)
         reverse_penalties.append(reverse_penalty)
-        # print(f"Reverse penalty {reverse_penalties}")
-
 
     # After ALL simulation are done, update the reward
     for i in range(len(simulation_paths)):
-      # print(f"Reverse penalty {reverse_penalties[i]}")
       leaf_of_simulation = simulation_paths[i][-1]
       parent = simulation_paths[i][-2]
         
       # Compute reward
-      reward = self.evaluate_state_reward(parent, leaf_of_simulation)# + self.getScore(leaf_of_simulation)
+      reward = self.evaluate_state_reward(parent, leaf_of_simulation)
       reward += reverse_penalties[i]
       
       # Backpropagate along this simulation path
@@ -182,8 +140,6 @@ class myHeuristicMCTSAgent(CaptureAgent):
         for action, rewards in action_to_rewards.items()
     }
     best_action = max(action_avg_rewards.items(), key=lambda x: x[1])[0]
-    # print("best_action: ", best_action)
-    # print("best action's reward: ", action_avg_rewards[best_action])
 
     # Update the tree root 
     child_node = root.generateSuccessor(self.index, best_action)    
@@ -201,7 +157,6 @@ class myHeuristicMCTSAgent(CaptureAgent):
     if len(actions) == 1 and actions[0] == Directions.REVERSE[action]:
       myPos = successor.getAgentState(self.index).getPosition()
       if self.getFood(successor)[int(myPos[0])][int(myPos[1])] == 'False':
-        # print("DEADEND")
         return 1
     return 0
 
@@ -218,9 +173,7 @@ class myHeuristicMCTSAgent(CaptureAgent):
 
       for action in actions:
           successor = gameState.generateSuccessor(self.index, action)
-          # print(f"IS DEADEND? {self.deadend_no_food(successor, action)}")
           score = self.evaluate_state_reward(gameState, successor) + self.deadend_no_food(successor, action) * (-500)
-          # print(f"Action {action}, Score {score}")
 
           if score > best_score:
               best_score = score
@@ -238,11 +191,8 @@ class OffenseHeuristicMCTSAgent(myHeuristicMCTSAgent):
 
   def evaluate_state_reward(self, gameState, successor):
       max_value = 1000
-      # print(successor)
-      # parent = self.tree.find_parent(successor)
       carrying_food = gameState.getAgentState(self.index).numCarrying > 0
       
-      # successor = gameState.generateSuccessor(self.index, action)
       myState = successor.getAgentState(self.index)
       myPos = myState.getPosition()
       food_reward = self.get_food_reward(myPos, gameState, successor)
@@ -256,22 +206,12 @@ class OffenseHeuristicMCTSAgent(myHeuristicMCTSAgent):
 
       danger_zone = 6
 
-      # if myState.isPacman:
-      #     ghosts = [successor.getAgentState(i) for i in self.getOpponents(successor)]
-      #     visibleGhosts = [g for g in ghosts if not g.isPacman and g.getPosition() is not None and g.scaredTimer == 0]
-      #     if visibleGhosts:
-      #         closestGhost = min([self.getMazeDistance(myPos, g.getPosition()) for g in visibleGhosts])
-      #         features['ghostDanger'] = max(0, danger_zone - closestGhost)**2
-      #     else:
-      #         features['ghostDanger'] = 0
-
       ghosts = [successor.getAgentState(i) for i in self.getOpponents(successor)]
       visibleGhosts = [g for g in ghosts if not g.isPacman and g.getPosition() is not None and g.scaredTimer == 0]
       if visibleGhosts:
           closestGhost = min([self.getMazeDistance(myPos, g.getPosition()) for g in visibleGhosts])
       else:
           closestGhost = 100
-          # features['ghostDanger'] = max(0, danger_zone - closestGhost)**2
 
       if carrying_food and closestGhost<=danger_zone:
           mid_x = gameState.getWalls().width // 2
@@ -292,14 +232,11 @@ class OffenseHeuristicMCTSAgent(myHeuristicMCTSAgent):
               cross_boundry_reward = -100
           else:
               cross_boundry_reward = 0
-        #   print(f'Closest to boundry:{distance_to_boundary} and cross_boundry: {cross_boundry_reward}')
           return distance_to_boundary + cross_boundry_reward
 
       reward = max_value - (food_reward + capsule_reward + enemy_score + score)
-    #   print(f'This is the reward when not carrying:{reward}')
       return reward
         
-        # return reward
 
     
   def get_food_reward(self, myPos, gameState, successor):
@@ -360,72 +297,9 @@ class OffenseHeuristicMCTSAgent(myHeuristicMCTSAgent):
           if dangerous_ghosts and min(dist for _, dist in dangerous_ghosts) < 3:
               enemy_score += 100
       return enemy_score
-
-    # features = self.offense_heuristic_reward(successor)
-    # weights = self.get_weights_offense()
-    # reward = features * weights
-    # # print(f"OFFENSE REWARD {reward}")
-    # return reward
-
-  # def offense_heuristic_reward(self, successor):
-  #   features = util.Counter()
-  #   myPos = successor.getAgentState(self.index).getPosition()
-  #   myState = successor.getAgentState(self.index)
-
-  #   foodList = self.getFood(successor).asList()
-  #   capsules = self.getCapsules(successor)
-
-  #   # How much food we ate?
-  #   prev_food = self.getFood(self.tree.root).asList()
-  #   features['foodEaten'] = len(prev_food) - len(foodList)
-
-  #   # The closer to the nearest food => the better 
-  #   if foodList:
-  #       features['distanceToFood'] = min([self.getMazeDistance(myPos, food) for food in foodList])
-
-  #   # # The closer to the nearest capsule => the better 
-  #   # if capsules:
-  #   #     features['distanceToCapsule'] = min([self.getMazeDistance(myPos, cap) for cap in capsules])
-
-  #   # Ghosts should be avoided
-  #   danger_zone = 6 
-  #   if myState.isPacman:
-  #       ghosts = [successor.getAgentState(i) for i in self.getOpponents(successor)]
-  #       visibleGhosts = [g for g in ghosts if not g.isPacman and g.getPosition() is not None and g.scaredTimer == 0]
-  #       if visibleGhosts:
-  #           closestGhost = min([self.getMazeDistance(myPos, g.getPosition()) for g in visibleGhosts])
-  #           features['ghostDanger'] = max(0, danger_zone - closestGhost)**2
-  #       else:
-  #           features['ghostDanger'] = 0
-    
-
-
-  #   # If pacman has more than 5 foods => come home to check it in
-  #   carried = myState.numCarrying
-  #   if carried >= 2:
-  #       mid_x = successor.getWalls().width // 2
-  #       if self.red:
-  #           mid_x = mid_x - 1
-  #       else:
-  #           mid_x = mid_x
-
-  #       boundary_y = [y for y in range(successor.getWalls().height)
-  #                     if not successor.hasWall(mid_x, y)]
-  #       returnDistances = [self.getMazeDistance(myPos, (mid_x, y)) for y in boundary_y]
-  #       features['distanceToHome'] = min(returnDistances) if returnDistances else 0
-  #   else:
-  #      features['distanceToHome'] = 0
-  #   features['carrying'] = carried
-
-  #   # print(f"FEATURES: {features}")
-  #   return features
-  
-
   
   def get_weights_offense(self):
-    # return {'foodEaten': 100, 'closestGhostDist': 10, 'escape': -500}
     return {'foodEaten': 20, 'distanceToFood': -2, 'ghostDanger': -7, 'carrying': 40, 'distanceToHome': -12}
-    # return {'foodEaten': 20, 'distanceToFood': -2, 'ghostDanger': -40, 'carrying': 30, 'distanceToHome': -20}, no exp ghostDanger
 
 
 

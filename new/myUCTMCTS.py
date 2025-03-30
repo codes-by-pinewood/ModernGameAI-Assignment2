@@ -2,8 +2,6 @@ from captureAgents import CaptureAgent
 import random, time, util
 from tree import Tree
 from game import Directions
-import game
-import json
 from collections import defaultdict
 
 import math
@@ -12,29 +10,10 @@ import math
 # Team creation #
 #################
 
-# def createTeam(firstIndex, secondIndex, isRed,
-#                first = 'MCTSAgent', second = 'MCTSAgent'):
-#   """
-#   This function should return a list of two agents that will form the
-#   team, initialized using firstIndex and secondIndex as their agent
-#   index numbers.  isRed is True if the red team is being created, and
-#   will be False if the blue team is being created.
-
-#   As a potentially helpful development aid, this function can take
-#   additional string-valued keyword arguments ("first" and "second" are
-#   such arguments in the case of this function), which will come from
-#   the --redOpts and --blueOpts command-line arguments to capture.py.
-#   For the nightly contest, however, your team will be created without
-#   any extra arguments, so you should make sure that the default
-#   behavior is what you want for the nightly contest.
-#   """
-#   return [eval(first)(firstIndex), eval(second)(secondIndex)]
-
 def createTeam(firstIndex, secondIndex, isRed,
-               first='UCBMCTSAgent', second='DeffensiveMCTSAgent', **kwargs):
+               first='UCTMCTSAgent', second='DeffensiveMCTSAgent', **kwargs):
   agents = [eval(first)(firstIndex), eval(second)(secondIndex)]
   
-  # Save all string-valued opts into each agent's __dict__
   for agent in agents:
       for key, val in kwargs.items():
           if isinstance(val, str) and key not in ['first', 'second']:
@@ -47,7 +26,7 @@ def createTeam(firstIndex, secondIndex, isRed,
 #########
 
 
-class UCBMCTSAgent(CaptureAgent):
+class UCTMCTSAgent(CaptureAgent):
     def __init__(self, index):
       super().__init__(index)
       self.root = None
@@ -57,38 +36,15 @@ class UCBMCTSAgent(CaptureAgent):
       self.total_rewards = defaultdict(float)
       self.exploration_constant = 0.1
 
-
-
     def registerInitialState(self, gameState):
-        """
-        This method handles the initial setup of the
-        agent to populate useful fields (such as what team
-        we're on).
-
-        A distanceCalculator instance caches the maze distances
-        between each pair of positions, so your agents can use:
-        self.distancer.getDistance(p1, p2)
-
-        IMPORTANT: This method may run for at most 15 seconds.
-        """
-
         self.tree = Tree(root = gameState)
         self.tree.relations_dict[gameState] = []
-        
-        '''
-        Make sure you do not delete the following line. If you would like to
-        use Manhattan distances instead of maze distances in order to save
-        on initialization time, please take a look at
-        CaptureAgent.registerInitialState in captureAgents.py.
-        '''
         if hasattr(self, 'rollout_depth'):
             self.rollout_depth = int(self.rollout_depth)
         if hasattr(self, 'simulations'):
             self.simulations = int(self.simulations)
         if hasattr(self, 'exploration_constant'):
             self.exploration_constant = float(self.exploration_constant)
-        
-
         CaptureAgent.registerInitialState(self, gameState)
 
     def uct_select(self, node, action):
@@ -109,29 +65,22 @@ class UCBMCTSAgent(CaptureAgent):
         return q_value + exploration
 
     def select_action(self, node):
-       #get the legal actions
        legal_actions = node.getLegalActions(self.index)
-       #if legal actions are empty, return Non
        if not legal_actions:
-            return None  # No valid actions
-       #else return maximum of uct_select 
+            return None  
        best_action = max(legal_actions, key=lambda action: self.uct_select(node, action))
        return best_action
-       
 
     def backpropagate(self, path):
-       
         for node, action in path:
             self.visit_counts[(node, action)] += 1
             reward = path.get((node, action), 0)
            
             self.total_rewards[(node, action)] += reward
       
-
     def simulate(self, node):
         path = [node]
         reward_dict_path = {}
-        #print("inside simulate")
         for _ in range(self.rollout_depth):
             legal_actions = node.getLegalActions(self.index)
             if not legal_actions:
@@ -147,8 +96,6 @@ class UCBMCTSAgent(CaptureAgent):
             if node is None:
                 break
         return reward_dict_path
-        
-           
     
     def chooseAction(self, root):
         self.tree.root = root 
@@ -173,16 +120,11 @@ class UCBMCTSAgent(CaptureAgent):
     def compute_reward(self, node):
         if node in self.total_rewards:
             initial_reward = self.total_rewards[node]
-
         else: 
             initial_reward = 0   
-
         parent = self.tree.find_parent(node)
         carrying_food = parent.getAgentState(self.index).numCarrying > 0
         
-        
-        # print(self.tree.find_parent(node))
-        print(f"initial_state_reward: {initial_reward}")    
         if not carrying_food:
             food_features = self.food_based_heuristic_reward(node)
             capsule_features = self.get_capsule_heuristic(parent, node)
@@ -236,7 +178,6 @@ class UCBMCTSAgent(CaptureAgent):
         enemies = [successor.getAgentState(i) for i in self.getOpponents(successor)]
         invaders = [a for a in enemies if a.isPacman and a.getPosition() != None]
         dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders] 
-        #print(f"dists: {dists}")
         if len(invaders) > 0:
             dists = [self.getMazeDistance(myPos, a.getPosition()) for a in invaders]
             enemyDistance = min(dists)
@@ -252,20 +193,17 @@ class UCBMCTSAgent(CaptureAgent):
     def get_weights(self, carrying_food):
         if carrying_food:
             return {'distanceBorder': -100, 'crossingBorder': 100}
-            # return {'successorScore': 1000, 'distanceToFood': -100, 'enemyDistance': 200, 'capsuleEaten': -120}
         else:
             return {'successorScore': 1000, 'distanceToFood': -100, 'enemyDistance': 200, 'capsuleEaten': 120}
 
     def food_based_heuristic_reward(self, successor):
-        # TODO check weights later
         features = util.Counter()
         foodList = self.getFood(successor).asList()
         print(f"len(foodList): {len(foodList)}")    
         features['successorScore'] = -len(foodList) # the more food not in our belly => worse
 
         # Compute distance to the nearest food
-
-        if len(foodList) > 0: # This should always be True,  but better safe than sorry
+        if len(foodList) > 0: 
             myState = successor.getAgentState(self.index)
             myPos = successor.getAgentState(self.index).getPosition()
             minDistance = min([self.getMazeDistance(myPos, food) for food in foodList])
@@ -292,8 +230,7 @@ class UCBMCTSAgent(CaptureAgent):
         return features
     
 
-
-class DeffensiveMCTSAgent(UCBMCTSAgent):
+class DeffensiveMCTSAgent(UCTMCTSAgent):
     def compute_reward(self, node):
         max_value = 1000
         if node in self.total_rewards:
@@ -304,7 +241,6 @@ class DeffensiveMCTSAgent(UCBMCTSAgent):
         print(f"initial_state_reward: {initial_reward}")  
         parent = self.tree.find_parent(node)
 
-        # successor = gameState.generateSuccessor(self.index, action)
         myState = node.getAgentState(self.index)
         myPos = node.getAgentState(self.index).getPosition()
         current_enemies = [parent.getAgentState(i) for i in self.getOpponents(parent)]

@@ -11,26 +11,6 @@ import json
 
 def createTeam(firstIndex, secondIndex, isRed,
                first = 'HeuristicAgent', second = 'DefenceHeuristiAgent'):
-  """
-  This function should return a list of two agents that will form the
-  team, initialized using firstIndex and secondIndex as their agent
-  index numbers.  isRed is True if the red team is being created, and
-  will be False if the blue team is being created.
-
-  As a potentially helpful development aid, this function can take
-  additional string-valued keyword arguments ("first" and "second" are
-  such arguments in the case of this function), which will come from
-  the --redOpts and --blueOpts command-line arguments to capture.py.
-  For the nightly contest, however, your team will be created without
-  any extra arguments, so you should make sure that the default
-  behavior is what you want for the nightly contest.
-  """
-  #print("firstIndex: ", firstIndex)
-  #print("secondIndex: ", secondIndex)
-  #print("eval(first)(firstIndex): ", eval(first)(firstIndex))
-  #print("eval(second)(secondIndex): ", eval(second)(secondIndex))
-
-  # The following line is an example only; feel free to change it.
   return [eval(first)(firstIndex), eval(second)(secondIndex)]
 
 
@@ -39,7 +19,6 @@ class HeuristicAgent(CaptureAgent):
   
   def registerInitialState(self, gameState):
     self.start = gameState.getAgentPosition(self.index)
-    # print(f"self.start: {self.start}")
     CaptureAgent.registerInitialState(self, gameState)
 
   def chooseAction(self, gameState):
@@ -51,8 +30,6 @@ class HeuristicAgent(CaptureAgent):
       if action_score < best_score:
         best_score = action_score
         best_action = action
-      
-
     return best_action
 
   def get_food_reward(self, myPos, gameState, successor):
@@ -135,7 +112,6 @@ class HeuristicAgent(CaptureAgent):
         closestGhost = min([self.getMazeDistance(myPos, g.getPosition()) for g in visibleGhosts])
     else:
         closestGhost = 100
-        # features['ghostDanger'] = max(0, danger_zone - closestGhost)**2
 
     if carrying_food and closestGhost<=danger_zone:
         mid_x = gameState.getWalls().width // 2
@@ -156,11 +132,9 @@ class HeuristicAgent(CaptureAgent):
            cross_boundry_reward = -100
         else:
            cross_boundry_reward = 0
-        # print(f'Closest to boundry:{distance_to_boundary} and cross_boundry: {cross_boundry_reward}')
         return distance_to_boundary + cross_boundry_reward
 
     reward = food_reward + capsule_reward + enemy_score + score
-    # print(f'This is the reward when not carrying:{reward}')
     return reward
   
 

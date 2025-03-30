@@ -8,9 +8,7 @@ class Tree:
         if self.root:
             self.relations_dict[self.root] = [] 
             
-     
     def isLeaf(self, node):
-        #print(f"Length of relations_dict: {self.relations_dict[node]}")
         if len(self.relations_dict.get(node, [])) == 0:
             return True
         else: 
