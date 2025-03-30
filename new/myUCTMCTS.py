@@ -35,6 +35,7 @@ class UCTMCTSAgent(CaptureAgent):
       self.visit_counts = defaultdict(int)  # Track visits per node
       self.total_rewards = defaultdict(float)
       self.exploration_constant = 0.1
+      self.epsilon = 1
 
     def registerInitialState(self, gameState):
         self.tree = Tree(root = gameState)
@@ -45,11 +46,15 @@ class UCTMCTSAgent(CaptureAgent):
             self.simulations = int(self.simulations)
         if hasattr(self, 'exploration_constant'):
             self.exploration_constant = float(self.exploration_constant)
+        if hasattr(self, 'epsilon'):
+            self.epsilon = float(self.epsilon)
         CaptureAgent.registerInitialState(self, gameState)
 
     def uct_select(self, node, action):
         if (node, action) not in self.visit_counts:
             return float("inf")  # Encourage unvisited actions
+        
+        self.exploration_constant = self.exploration_constant * self.epsilon
 
         q_value = self.total_rewards[(node, action)] / self.visit_counts[(node, action)]
 

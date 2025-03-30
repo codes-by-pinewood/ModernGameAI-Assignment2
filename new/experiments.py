@@ -313,16 +313,16 @@ if __name__ == '__main__':
     Logic: first naive VS baseline, second - uct VS uct + decay, 
     best uct VS heuristic MCTS, best so far vs heuristic agent
     """
-    ################## Naive MCTS vs Baseline ##################
-    red = 'myNaiveMCTS'
-    blue = 'baselineTeam'
-    print(f"Tournament: {red} VS {blue}")
+    # ################## Naive MCTS vs Baseline ##################
+    # red = 'myNaiveMCTS'
+    # blue = 'baselineTeam'
+    # print(f"Tournament: {red} VS {blue}")
 
-    naive_depth = 8
-    naive_num_simulations = 10
+    # naive_depth = 8
+    # naive_num_simulations = 10
 
-    run_tournament(red=red, blue=blue, quiet=True, num_games=100, length=naive_depth, num_simulations=naive_num_simulations)
-    #############################################################
+    # run_tournament(red=red, blue=blue, quiet=True, num_games=100, length=naive_depth, num_simulations=naive_num_simulations)
+    # #############################################################
 
 
     ################## Vanilla MCTS vs MCTS with decay factor ##################
